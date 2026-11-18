@@ -1,3 +1,5 @@
+import { preloadBase } from './base-global.js'
+
 const C = window.Cesium
 const status = document.querySelector('#estado')
 const altitude = document.querySelector('#altura')
@@ -25,11 +27,10 @@ async function start() {
     tilingScheme: scheme, width: size, height: size, callback: () => undefined,
   })
   provider.getTileDataAvailable = available
+  let cachedHeight
   provider.requestTileGeometry = (x, y, level, request) => {
-    const resource = new C.Resource({ url: `./datos/bloques/relieve/${level}/${x}/${y}.bin`, request })
-    return resource.fetchArrayBuffer()?.then(buffer => {
-      if (buffer.byteLength !== 2 * size * size) throw new Error('Bloque de relieve inválido')
-      const view = new DataView(buffer)
+    function decode(view) {
+      if (view.byteLength !== 2 * size * size) throw new Error('Bloque de relieve inválido')
       const heights = new Int16Array(size * size)
       for (let i = 0; i < heights.length; i++) heights[i] = view.getInt16(i * 2, true)
       let childTileMask = 0
@@ -39,7 +40,11 @@ async function start() {
         }
       }
       return new C.HeightmapTerrainData({ buffer: heights, width: size, height: size, childTileMask })
-    })
+    }
+    const local = cachedHeight?.(x, y, level)
+    if (local) return Promise.resolve(decode(local))
+    const resource = new C.Resource({ url: `./datos/bloques/relieve/${level}/${x}/${y}.bin`, request })
+    return resource.fetchArrayBuffer()?.then(buffer => decode(new DataView(buffer)))
   }
   const globe = new C.Globe(ellipsoid)
   globe.depthTestAgainstTerrain = true
@@ -163,6 +168,22 @@ async function start() {
   }, C.ScreenSpaceEventType.LEFT_CLICK)
   go('global', 0)
   flyButton.disabled = false
+  const preloading = document.querySelector('#precarga')
+  // Start after the lightweight global view has rendered; navigation is never blocked.
+  const stopWaiting = globe.tileLoadProgressEvent.addEventListener(remaining => {
+    if (remaining !== 0) return
+    stopWaiting()
+    preloading.textContent = 'Descargando base global…'
+    preloadBase(C, size, relieve.global, scheme, (read, imagery) => {
+      cachedHeight = read
+      globe.imageryLayers.addImageryProvider(imagery, 1)
+      viewer.scene.requestRender()
+    }).then(() => {
+      preloading.textContent = 'Base global lista'
+    }).catch(() => {
+      preloading.textContent = 'Base global no disponible · descarga por bloques activa'
+    })
+  })
 }
 
 start().catch(error => {
