@@ -14,7 +14,7 @@
   </style>
   <script>window.CESIUM_BASE_URL='./node_modules/cesium/Build/Cesium/'</script>
   <script src="./node_modules/cesium/Build/Cesium/Cesium.js" defer></script>
-  <script src="./globo.js?v=detalle-olimpo" type="module"></script>
+  <script src="./globo.js?v=altitud-global" type="module"></script>
 </head>
 <body>
   <main id="mapa" aria-label="Globo navegable de Marte"></main>
@@ -31,6 +31,7 @@
     <nav id="destinos" aria-labelledby="turismo"></nav>
     <p id="estado" role="status">Cargando relieve global…</p>
     <p id="altura" hidden></p>
+    <p id="altitud-camara"></p>
     <p id="precarga" role="status"></p>
     <p id="detalle"></p>
     <small>Arrastra para navegar, usa la rueda para acercarte y Ctrl + arrastre para inclinar. <a href="https://trek.nasa.gov/mars/">NASA/JPL</a> · Viking, MOLA y CTX.</small>

@@ -16,12 +16,40 @@ async function start() {
   C.Ellipsoid.default = ellipsoid
   const scheme = new C.GeographicTilingScheme({ ellipsoid })
   const size = relieve.tamano
+  const globalDetailLevel = 7
   const regions = relieve.zonas.map(zone => ({ level: zone.nivel, rect: C.Rectangle.fromDegrees(...zone.bbox) }))
-  function available(x, y, level) {
-    if (level <= relieve.global) return true
+  function regional(x, y, level) {
     const tile = scheme.tileXYToRectangle(x, y, level)
     return regions.some(({ level: max, rect }) => level <= max &&
       tile.west < rect.east && tile.east > rect.west && tile.south < rect.north && tile.north > rect.south)
+  }
+  const available = (x, y, level) => level <= globalDetailLevel || regional(x, y, level)
+  const packs = new Map()
+  function globalBlock(x, y, level) {
+    const side = 1 << (level - 4)
+    const key = `${Math.floor(x / side)}/${Math.floor(y / side)}`
+    let pack = packs.get(key)
+    if (!pack) {
+      const resource = new C.Resource({
+        url: `./datos/bloques/mola-global-v1/${key}.bin`,
+        request: new C.Request({ throttle: true, throttleByServer: true, type: C.RequestType.TERRAIN }),
+      })
+      const download = resource.fetchArrayBuffer()
+      if (!download) return undefined
+      pack = download.then(buffer => {
+        if (buffer.byteLength !== (16 + 64) * size * size * 2) throw new Error('Paquete MOLA incompleto')
+        return buffer
+      }).catch(error => {
+        packs.delete(key)
+        throw error
+      })
+    }
+    packs.delete(key)
+    packs.set(key, pack)
+    if (packs.size > 16) packs.delete(packs.keys().next().value)
+    const stride = size * size * 2
+    const index = (level === 7 ? 16 : 0) + (y % side) * side + x % side
+    return pack.then(buffer => new DataView(buffer, index * stride, stride))
   }
   const provider = new C.CustomHeightmapTerrainProvider({
     tilingScheme: scheme, width: size, height: size, callback: () => undefined,
@@ -43,6 +71,9 @@ async function start() {
     }
     const local = cachedHeight?.(x, y, level)
     if (local) return Promise.resolve(decode(local))
+    if (level > relieve.global && level <= globalDetailLevel && !regional(x, y, level)) {
+      return globalBlock(x, y, level)?.then(decode)
+    }
     const resource = new C.Resource({ url: `./datos/bloques/relieve/${level}/${x}/${y}.bin`, request })
     return resource.fetchArrayBuffer()?.then(buffer => decode(new DataView(buffer)))
   }
@@ -63,6 +94,16 @@ async function start() {
   const controls = viewer.scene.screenSpaceCameraController
   controls.minimumZoomDistance = 120
   controls.maximumZoomDistance = 16000000
+  const readout = document.querySelector('#altitud-camara')
+  const meters = new Intl.NumberFormat('es', { maximumFractionDigits: 0 })
+  viewer.scene.postRender.addEventListener(() => {
+    const position = viewer.camera.positionCartographic
+    const ground = globe.getHeight(position)
+    const height = ground === undefined ? 'Calculando altura sobre el terreno…'
+      : `≈ ${meters.format(position.height - ground)} m sobre el terreno`
+    const text = `${height} · ${meters.format(position.height)} m respecto a la referencia`
+    if (text !== readout.textContent) readout.textContent = text
+  })
   for (const { id, bbox, nivel, columnas } of imagenes) {
     const rectangle = C.Rectangle.fromDegrees(...bbox)
     globe.imageryLayers.addImageryProvider(new C.UrlTemplateImageryProvider({
@@ -167,6 +208,14 @@ async function start() {
     if (picked?.collection === pins || picked?.primitive instanceof C.PointPrimitive) go(picked.id, 3.1)
   }, C.ScreenSpaceEventType.LEFT_CLICK)
   go('global', 0)
+  const params = new URLSearchParams(location.search)
+  if (['lon', 'lat', 'altura'].every(key => params.has(key) && params.get(key).trim())) {
+    const [lon, lat, height] = ['lon', 'lat', 'altura'].map(key => Number(params.get(key)))
+    if (Math.abs(lon) <= 180 && Math.abs(lat) <= 90 && height >= 3000 && height <= 16_000_000) {
+      views.coords = [lon, lat, height, -80, 'Vista de coordenadas']
+      go('coords', 0)
+    }
+  }
   flyButton.disabled = false
   const preloading = document.querySelector('#precarga')
   const detail = document.querySelector('#detalle')
