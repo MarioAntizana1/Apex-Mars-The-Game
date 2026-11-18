@@ -1,7 +1,7 @@
 const levelOffset = level => 2 * (4 ** level - 1) / 3
 const tileIndex = (x, y, level) => levelOffset(level) + y * (2 << level) + x
 const tileCount = level => levelOffset(level + 1)
-const paths = ['base-global-v1.bin', 'base-global-v1.pack']
+const paths = ['base-global-v2.bin', 'base-global-v1.pack']
 
 export async function preloadBase(C, size, terrainLevel, scheme, apply) {
   const urls = paths.map(path => new URL(`./datos/bloques/${path}`, import.meta.url))

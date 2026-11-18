@@ -1,4 +1,4 @@
-import { preloadBase } from './base-global.js'
+import { preloadBase } from './base-global.js?v=olimpo'
 
 const C = window.Cesium
 const status = document.querySelector('#estado')
@@ -11,7 +11,7 @@ async function load(path) {
 }
 
 async function start() {
-  const { relieve, imagenes, destinos } = await (await load('bloques/indice.json')).json()
+  const { relieve, imagenes, destinos } = await (await load('bloques/indice.json?v=olimpo')).json()
   const ellipsoid = new C.Ellipsoid(3396190, 3396190, 3396190)
   C.Ellipsoid.default = ellipsoid
   const scheme = new C.GeographicTilingScheme({ ellipsoid })
@@ -149,7 +149,7 @@ async function start() {
   const pins = viewer.scene.primitives.add(new C.PointPrimitiveCollection())
   const distance = new C.DistanceDisplayCondition(90000, 16000000)
   for (const { id, nombre, lon, lat } of destinos) {
-    if (id !== 'jezero') views[id] = [lon, lat, 420000, -80, nombre]
+    if (id !== 'jezero') views[id] = [lon, lat, id === 'olimpo' ? 150000 : 420000, -80, nombre]
     const button = document.createElement('button')
     button.type = 'button'
     button.textContent = nombre
@@ -169,6 +169,11 @@ async function start() {
   go('global', 0)
   flyButton.disabled = false
   const preloading = document.querySelector('#precarga')
+  const detail = document.querySelector('#detalle')
+  detail.textContent = 'Detalle dinámico activo'
+  globe.tileLoadProgressEvent.addEventListener(remaining => {
+    detail.textContent = remaining ? 'Detalle dinámico activo · cargando bloques de la vista' : 'Detalle dinámico activo'
+  })
   // Start after the lightweight global view has rendered; navigation is never blocked.
   const stopWaiting = globe.tileLoadProgressEvent.addEventListener(remaining => {
     if (remaining !== 0) return
