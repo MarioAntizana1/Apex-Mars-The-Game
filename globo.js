@@ -162,6 +162,7 @@ async function start() {
     if (picked?.collection === pins || picked?.primitive instanceof C.PointPrimitive) go(picked.id, 3.1)
   }, C.ScreenSpaceEventType.LEFT_CLICK)
   go('global', 0)
+  flyButton.disabled = false
 }
 
 start().catch(error => {

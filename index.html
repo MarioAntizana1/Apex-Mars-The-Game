@@ -14,7 +14,7 @@
   </style>
   <script>window.CESIUM_BASE_URL='./node_modules/cesium/Build/Cesium/'</script>
   <script src="./node_modules/cesium/Build/Cesium/Cesium.js" defer></script>
-  <script src="./globo.js" type="module"></script>
+  <script src="./globo.js?v=sobrevuelo" type="module"></script>
 </head>
 <body>
   <main id="mapa" aria-label="Globo navegable de Marte"></main>
@@ -25,7 +25,7 @@
       <button id="global">Marte global</button>
       <button id="jezero">Acercar a Jezero</button>
       <button id="borde">Cruzar el borde de Jezero</button>
-      <button id="sobrevuelo">Sobrevolar Jezero</button>
+      <button id="sobrevuelo" disabled>Sobrevolar Jezero</button>
     </nav>
     <h2 id="turismo">Destinos turísticos</h2>
     <nav id="destinos" aria-labelledby="turismo"></nav>
