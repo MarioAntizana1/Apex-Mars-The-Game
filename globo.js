@@ -1,5 +1,6 @@
 const C = window.Cesium
 const status = document.querySelector('#estado')
+const altitude = document.querySelector('#altura')
 
 async function load(path) {
   const response = await fetch(`./datos/${path}`)
@@ -44,6 +45,9 @@ async function start() {
   globe.depthTestAgainstTerrain = true
   globe.showGroundAtmosphere = false
   globe.tileCacheSize = 160
+  globe.preloadAncestors = true
+  globe.preloadSiblings = true
+  globe.loadingDescendantLimit = 6
   globe.baseColor = C.Color.fromCssColorString('#a7755b')
   const viewer = new C.CesiumWidget('mapa', {
     ellipsoid, globe, terrainProvider: provider, baseLayer: false, skyBox: false,
@@ -67,9 +71,58 @@ async function start() {
     jezero: [77.46, 18.35, 16500, -68, 'Jezero · relieve CTX'],
     borde: [77.96, 18.35, 16500, -68, 'Alrededores de Jezero · relieve MOLA'],
   }
+  const flyButton = document.querySelector('#sobrevuelo')
+  let flyover = false
+  function stopFlyover() {
+    flyover = false
+    flyButton.textContent = 'Sobrevolar Jezero'
+    altitude.hidden = true
+    viewer.camera.cancelFlight()
+  }
+  viewer.scene.postRender.addEventListener(() => {
+    if (!flyover) return
+    const position = viewer.camera.positionCartographic
+    const ground = globe.getHeight(position)
+    altitude.hidden = ground === undefined
+    if (ground !== undefined) {
+      const gap = Math.round((position.height - ground) / 100) * 100
+      const text = `Altura aprox. ${gap.toLocaleString('es-ES')} m sobre el terreno`
+      if (altitude.textContent !== text) altitude.textContent = text
+    }
+  })
+  flyButton.onclick = () => {
+    if (flyover) {
+      stopFlyover()
+      status.textContent = 'Sobrevuelo detenido'
+      return
+    }
+    viewer.camera.cancelFlight()
+    if (reduced.matches) {
+      go('jezero', 0)
+      return
+    }
+    flyover = true
+    flyButton.textContent = 'Detener sobrevuelo'
+    status.textContent = 'Aproximación a Jezero…'
+    function leg(lon, lat, height, duration, complete) {
+      viewer.camera.flyTo({
+        destination: C.Cartesian3.fromDegrees(lon, lat, height, ellipsoid),
+        orientation: { heading: C.Math.PI_OVER_TWO, pitch: C.Math.toRadians(-22), roll: 0 },
+        maximumHeight: Math.max(height, viewer.camera.positionCartographic.height),
+        duration, complete,
+      })
+    }
+    leg(77.22, 18.44, 4500, 4, () => {
+      status.textContent = 'Sobrevuelo en curso'
+      leg(77.91, 18.44, 3500, 8, () => {
+        stopFlyover()
+        status.textContent = 'Sobrevuelo completo · alrededores de Jezero'
+      })
+    })
+  }
   function go(view, duration) {
     const [lon, lat, height, pitch, label] = views[view]
-    viewer.camera.cancelFlight()
+    stopFlyover()
     status.textContent = 'Moviendo cámara…'
     const options = {
       destination: C.Cartesian3.fromDegrees(lon, lat, height, ellipsoid),
