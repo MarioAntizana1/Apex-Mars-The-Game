@@ -14,10 +14,18 @@
     #panel:has(#marineris:not([hidden])){max-width:min(21rem,calc(100vw - 4rem));max-height:calc(100dvh - 4rem);overflow:auto}
     #panel:has(#marineris:not([hidden])) :is(#vistas,#turismo,#destinos,#ayuda,#enlace-ius){display:none}
     [data-vista][aria-pressed=true]{background:#59362a;border-color:#ffd59c}
+    #panel{max-height:calc(100dvh - 4rem);overflow:auto}
+    #panel:has(#vuelo-panel:not([hidden])){max-width:min(20rem,calc(100vw - 4rem))}
+    #panel:has(#vuelo-panel:not([hidden])) :is(#vistas,#turismo,#destinos,#ayuda,#enlace-ius,#marineris,#altitud-camara,#precarga,#detalle){display:none}
+    #pilotaje{margin:.15rem 0;background:#653820}
+    .ctx-control{display:flex;align-items:center;gap:.45rem;margin:.65rem 0 .25rem}
+    #fuente-directa{display:block;min-height:1.1em}
+    #vuelo-panel dl{display:grid;grid-template-columns:max-content 1fr;gap:.45rem .7rem;font-variant-numeric:tabular-nums}
+    #vuelo-panel dd{margin:0} #vuelo-panel kbd{color:#ffd59c;font-size:1em}
   </style>
   <script>window.CESIUM_BASE_URL='./node_modules/cesium/Build/Cesium/'</script>
   <script src="./node_modules/cesium/Build/Cesium/Cesium.js" defer></script>
-  <script src="./globo.js?v=marineris-local" type="module"></script>
+  <script src="./globo.js?v=vuelo-ctx" type="module"></script>
 </head>
 <body>
   <main id="mapa" aria-label="Globo navegable de Marte"></main>
@@ -38,6 +46,23 @@
     <p id="altitud-camara"></p>
     <p id="precarga" role="status"></p>
     <p id="detalle"></p>
+    <button id="pilotaje" disabled>Pilotar cohete</button>
+    <label class="ctx-control"><input id="activar-ctx" type="checkbox" checked disabled> Usar imágenes CTX directas</label>
+    <small id="fuente-directa"></small>
+    <section id="vuelo-panel" hidden aria-labelledby="titulo-vuelo">
+      <h2 id="titulo-vuelo">Mandos del cohete</h2>
+      <dl>
+        <dt>Velocidad</dt><dd id="velocidad-nave"></dd>
+        <dt>Rumbo</dt><dd id="rumbo-nave"></dd>
+        <dt>Altura</dt><dd id="altura-nave"></dd>
+        <dt>Posición</dt><dd id="posicion-nave"></dd>
+      </dl>
+      <p><kbd>W</kbd>/<kbd>S</kbd> subir o bajar · <kbd>A</kbd>/<kbd>D</kbd> girar · <kbd>R</kbd>/<kbd>F</kbd> acelerar o frenar. También puedes usar las flechas. <kbd>P</kbd> pausa · <kbd>Esc</kbd> salir.</p>
+      <nav aria-label="Modo de vuelo">
+        <button id="pausar-vuelo">Pausar vuelo</button>
+        <button id="salir-vuelo">Salir del vuelo</button>
+      </nav>
+    </section>
     <section id="marineris" hidden>
       <h2>Prueba · Ius Chasma</h2>
       <nav aria-label="Vistas de Ius Chasma">

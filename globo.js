@@ -1,5 +1,7 @@
 import { preloadBase } from './base-global.js?v=olimpo'
-import { marinerisViews } from './marineris.js'
+import { marinerisViews } from './marineris.js?v=vuelo'
+import { ctxDirecto } from './ctx-directo.js'
+import { crearVuelo } from './vuelo.js'
 
 const C = window.Cesium
 const status = document.querySelector('#estado')
@@ -138,6 +140,7 @@ async function start() {
     altitude.hidden = true
     viewer.camera.cancelFlight()
   }
+  const stopPilot = crearVuelo(C, viewer, status, stopFlyover)
   viewer.scene.postRender.addEventListener(() => {
     if (!flyover) return
     const position = viewer.camera.positionCartographic
@@ -150,6 +153,7 @@ async function start() {
     }
   })
   flyButton.onclick = () => {
+    stopPilot()
     if (flyover) {
       stopFlyover()
       status.textContent = 'Sobrevuelo detenido'
@@ -183,6 +187,7 @@ async function start() {
     showView(views[view], duration, view === 'borde')
   }
   function showView([lon, lat, height, pitch, label], duration, crossBoundary = false) {
+    stopPilot()
     stopFlyover()
     status.textContent = 'Moviendo cámara…'
     const options = {
@@ -223,14 +228,18 @@ async function start() {
     if (picked?.collection === pins || picked?.primitive instanceof C.PointPrimitive) go(picked.id, 3.1)
   }, C.ScreenSpaceEventType.LEFT_CLICK)
   go('global', 0)
+  let approachLayer
   if (trial) {
     const experiment = marinerisViews(C, viewer, trial, addImagery, showView)
+    approachLayer = experiment.approachLayer
     const geometricError = provider.getLevelMaximumGeometricError.bind(provider)
     // Above level 15 the samples are the landing patch, not normal flight terrain.
     provider.getLevelMaximumGeometricError = level => level >= 15 && !experiment.fineTerrain()
       ? 1e-6 : geometricError(level)
     showView(experiment.initialView, 0)
   }
+  const updateCtx = ctxDirecto(C, viewer, scheme, approachLayer)
+  viewer.scene.preRender.addEventListener(() => updateCtx(globe.getHeight(viewer.camera.positionCartographic)))
   if (['lon', 'lat', 'altura'].every(key => params.has(key) && params.get(key).trim())) {
     const [lon, lat, height] = ['lon', 'lat', 'altura'].map(key => Number(params.get(key)))
     if (Math.abs(lon) <= 180 && Math.abs(lat) <= 90 && height >= 3000 && height <= 16_000_000) {
