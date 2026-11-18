@@ -1,4 +1,5 @@
 import { preloadBase } from './base-global.js?v=olimpo'
+import { marinerisViews } from './marineris.js'
 
 const C = window.Cesium
 const status = document.querySelector('#estado')
@@ -11,19 +12,24 @@ async function load(path) {
 }
 
 async function start() {
+  const params = new URLSearchParams(location.search)
+  const trial = params.get('marineris') === '1' ? await (await load('bloques/marineris/indice.json')).json() : null
   const { relieve, imagenes, destinos } = await (await load('bloques/indice.json?v=olimpo')).json()
   const ellipsoid = new C.Ellipsoid(3396190, 3396190, 3396190)
   C.Ellipsoid.default = ellipsoid
   const scheme = new C.GeographicTilingScheme({ ellipsoid })
   const size = relieve.tamano
   const globalDetailLevel = 7
-  const regions = relieve.zonas.map(zone => ({ level: zone.nivel, rect: C.Rectangle.fromDegrees(...zone.bbox) }))
+  const region = (zone, path) => ({ path, level: zone.nivel, rect: C.Rectangle.fromDegrees(...zone.bbox) })
+  const regions = relieve.zonas.map(zone => region(zone, 'relieve'))
+  const marineris = (trial?.relieve ?? []).map(zone => region(zone, 'marineris/relieve'))
   function regional(x, y, level) {
     const tile = scheme.tileXYToRectangle(x, y, level)
-    return regions.some(({ level: max, rect }) => level <= max &&
-      tile.west < rect.east && tile.east > rect.west && tile.south < rect.north && tile.north > rect.south)
+    const overlaps = ({ level: max, rect }) => level <= max &&
+      tile.west < rect.east && tile.east > rect.west && tile.south < rect.north && tile.north > rect.south
+    return (level >= 8 && marineris.find(overlaps)) || regions.find(overlaps)
   }
-  const available = (x, y, level) => level <= globalDetailLevel || regional(x, y, level)
+  const available = (x, y, level) => level <= globalDetailLevel || Boolean(regional(x, y, level))
   const packs = new Map()
   function globalBlock(x, y, level) {
     const side = 1 << (level - 4)
@@ -74,7 +80,8 @@ async function start() {
     if (level > relieve.global && level <= globalDetailLevel && !regional(x, y, level)) {
       return globalBlock(x, y, level)?.then(decode)
     }
-    const resource = new C.Resource({ url: `./datos/bloques/relieve/${level}/${x}/${y}.bin`, request })
+    const folder = regional(x, y, level)?.path ?? 'relieve'
+    const resource = new C.Resource({ url: `./datos/bloques/${folder}/${level}/${x}/${y}.bin`, request })
     return resource.fetchArrayBuffer()?.then(buffer => decode(new DataView(buffer)))
   }
   const globe = new C.Globe(ellipsoid)
@@ -104,13 +111,19 @@ async function start() {
     const text = `${height} · ${meters.format(position.height)} m respecto a la referencia`
     if (text !== readout.textContent) readout.textContent = text
   })
-  for (const { id, bbox, nivel, columnas } of imagenes) {
+  function addImagery({ id, bbox, nivel, columnas, filas = 1 }, prefix = '', show = true) {
     const rectangle = C.Rectangle.fromDegrees(...bbox)
-    globe.imageryLayers.addImageryProvider(new C.UrlTemplateImageryProvider({
-      url: `./datos/bloques/imagen/${id}/{z}/{x}/{y}.webp`, rectangle, maximumLevel: nivel,
-      tilingScheme: new C.GeographicTilingScheme({ ellipsoid, rectangle, numberOfLevelZeroTilesX: columnas }),
-    }))
+    const imagery = new C.UrlTemplateImageryProvider({
+      url: `./datos/bloques/${prefix}imagen/${id}/{z}/{x}/{y}.webp`, rectangle, maximumLevel: nivel,
+      tilingScheme: new C.GeographicTilingScheme({
+        ellipsoid, rectangle, numberOfLevelZeroTilesX: columnas, numberOfLevelZeroTilesY: filas,
+      }),
+    })
+    const layer = new C.ImageryLayer(imagery, { show })
+    globe.imageryLayers.add(layer)
+    return layer
   }
+  imagenes.forEach(layer => addImagery(layer))
   const reduced = matchMedia('(prefers-reduced-motion: reduce)')
   const views = {
     global: [73, 16, 8400000, -90, 'Marte global · relieve MOLA'],
@@ -167,7 +180,9 @@ async function start() {
     })
   }
   function go(view, duration) {
-    const [lon, lat, height, pitch, label] = views[view]
+    showView(views[view], duration, view === 'borde')
+  }
+  function showView([lon, lat, height, pitch, label], duration, crossBoundary = false) {
     stopFlyover()
     status.textContent = 'Moviendo cámara…'
     const options = {
@@ -180,7 +195,7 @@ async function start() {
       finish()
     } else {
       viewer.camera.flyTo({ ...options, duration, complete: finish,
-        ...(view === 'borde' && viewer.camera.positionCartographic.height < 60000 ? { maximumHeight: height } : {}),
+        ...(crossBoundary && viewer.camera.positionCartographic.height < 60000 ? { maximumHeight: height } : {}),
       })
     }
   }
@@ -208,7 +223,14 @@ async function start() {
     if (picked?.collection === pins || picked?.primitive instanceof C.PointPrimitive) go(picked.id, 3.1)
   }, C.ScreenSpaceEventType.LEFT_CLICK)
   go('global', 0)
-  const params = new URLSearchParams(location.search)
+  if (trial) {
+    const experiment = marinerisViews(C, viewer, trial, addImagery, showView)
+    const geometricError = provider.getLevelMaximumGeometricError.bind(provider)
+    // Above level 15 the samples are the landing patch, not normal flight terrain.
+    provider.getLevelMaximumGeometricError = level => level >= 15 && !experiment.fineTerrain()
+      ? 1e-6 : geometricError(level)
+    showView(experiment.initialView, 0)
+  }
   if (['lon', 'lat', 'altura'].every(key => params.has(key) && params.get(key).trim())) {
     const [lon, lat, height] = ['lon', 'lat', 'altura'].map(key => Number(params.get(key)))
     if (Math.abs(lon) <= 180 && Math.abs(lat) <= 90 && height >= 3000 && height <= 16_000_000) {
