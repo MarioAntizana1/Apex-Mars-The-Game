@@ -1,4 +1,5 @@
 import { aboveGround, flightPhase, newFlight, stepFlight, TERRAIN_FREE_ALTITUDE } from './flight-dynamics.js?v=espacio'
+import { followArc } from './flight-path.js'
 
 const CONTROL = new Map([
   ['KeyW', 'up'], ['ArrowUp', 'up'], ['KeyS', 'down'], ['ArrowDown', 'down'],
@@ -22,6 +23,9 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
   const panel = document.querySelector('#vuelo-panel')
   const pause = document.querySelector('#pausar-vuelo')
   const exit = document.querySelector('#salir-vuelo')
+  const recenter = document.querySelector('#vuelo-recentrar')
+  const motionMarker = document.querySelector('#vuelo-vector')
+  const canvas = scene.canvas
   const speedLabel = document.querySelector('#velocidad-nave')
   const headingLabel = document.querySelector('#rumbo-nave')
   const heightLabel = document.querySelector('#altura-nave')
@@ -40,7 +44,11 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
   const attitude = new C.HeadingPitchRoll()
   const sample = new C.Cartographic()
   const probePoint = new C.Cartographic()
-  let flight, previousInputs, previousCollision
+  const arc = { latitude: 0, longitude: 0, heading: 0 }
+  const markerPoint = new C.Cartesian3()
+  const markerNormal = new C.Cartesian3()
+  const look = { yaw: 0, pitch: 0, pointer: null, x: 0, y: 0 }
+  let flight, previousInputs, previousCollision, previousTouchAction
 
   const clamp = C.Math.clamp
   const deg = C.Math.toDegrees
@@ -53,7 +61,17 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
   }
   let held = new Set()
   const refreshInputs = () => { held = refreshButtons() }
+  function releaseLook() {
+    const pointer = look.pointer
+    look.pointer = null
+    if (pointer !== null && canvas.hasPointerCapture(pointer)) canvas.releasePointerCapture(pointer)
+  }
+  function centerLook() {
+    look.yaw = look.pitch = 0
+    if (flight) place()
+  }
   function clearInputs() {
+    releaseLook()
     keys.clear()
     const captures = [...pointers]
     pointers.clear()
@@ -102,27 +120,52 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
     }
     const rad = C.Math.toRadians
     const highView = clamp((position.height - 25000) / 75000, 0, 1)
+    const horizontal = flight.speed * Math.cos(pitch)
+    const pathPitch = horizontal > 0 ? Math.atan2(flight.verticalRate, horizontal) : 0
+    const defaultPitch = (1 - highView) * (pitch * .55 - rad(8)) + highView * pathPitch
     camera.setView({ destination, orientation: {
-      heading,
-      pitch: clamp(pitch * (.55 + .6 * highView) - rad(8 + 7 * highView), rad(-30 - 25 * highView), rad(12)),
+      heading: C.Math.zeroToTwoPi(heading + look.yaw),
+      pitch: clamp(defaultPitch + look.pitch, rad(-88), rad(88)),
       roll: bank * .6,
     } })
+    const view = Math.abs(look.yaw) + Math.abs(look.pitch) > .001 ? 'free' : 'forward'
+    if (panel.dataset.view !== view) panel.dataset.view = view
+    drawMotionMarker(horizontal, v)
     scene.requestRender()
   }
 
-  function lead(position, heading, distance, result) {
-    const step = distance / (ellipsoid.maximumRadius + position.height)
-    const sinLat = Math.sin(position.latitude), cosLat = Math.cos(position.latitude)
-    const sinStep = Math.sin(step), cosStep = Math.cos(step)
-    const lat = Math.asin(clamp(sinLat * cosStep + cosLat * sinStep * Math.cos(heading), -1, 1))
-    const lon = C.Math.negativePiToPi(position.longitude + Math.atan2(
-      Math.sin(heading) * sinStep * cosLat, cosStep - sinLat * Math.sin(lat),
-    ))
-    return C.Cartographic.fromRadians(lon, lat, position.height, result)
+  function drawMotionMarker(horizontal, v) {
+    if (!motionMarker) return
+    if (horizontal <= 1 || flight.waiting) { motionMarker.setAttribute('hidden', ''); return }
+    ellipsoid.geodeticSurfaceNormal(origin, markerNormal)
+    v.multiplyByScalar(markerNormal, v.dot(markerNormal, forward), markerPoint)
+    v.normalize(v.subtract(forward, markerPoint, markerPoint), markerPoint)
+    v.multiplyByScalar(markerNormal, flight.verticalRate / horizontal, markerNormal)
+    v.add(markerPoint, markerNormal, markerPoint)
+    const depth = v.dot(markerPoint, camera.directionWC)
+    if (depth <= .05) { motionMarker.setAttribute('hidden', ''); return }
+    const width = canvas.clientWidth, height = canvas.clientHeight
+    // Project the direction at infinity using the current camera, before render.
+    const scale = height / (2 * Math.tan(camera.frustum.fovy / 2) * depth)
+    const x = width / 2 + scale * v.dot(markerPoint, camera.rightWC)
+    const y = height / 2 - scale * v.dot(markerPoint, camera.upWC)
+    const visible = x >= 16 && y >= 16 && x <= width - 16 && y <= height - 16
+    motionMarker.toggleAttribute('hidden', !visible)
+    if (visible) {
+      const rect = canvas.getBoundingClientRect()
+      motionMarker.style.left = `${rect.left + x}px`
+      motionMarker.style.top = `${rect.top + y}px`
+    }
+  }
+
+  function trace(position, heading, distance) {
+    return followArc(position.latitude, position.longitude, heading, distance / (ellipsoid.maximumRadius + position.height), arc)
   }
   function probe(distance, heading) {
     const position = flight.position
-    return globe.getHeight(distance ? lead(position, heading, distance, probePoint) : position)
+    if (!distance) return globe.getHeight(position)
+    const point = trace(position, heading, distance)
+    return globe.getHeight(C.Cartographic.fromRadians(point.longitude, point.latitude, position.height, probePoint))
   }
 
   scene.preUpdate.addEventListener(() => {
@@ -139,11 +182,18 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
     }
     const checkTerrain = flight.height <= TERRAIN_FREE_ALTITUDE + 1000
     const steps = Math.max(Math.ceil(dt / .03), checkTerrain ? Math.ceil((flight.speed + 24) * dt / 30) : 1)
+    const previousHeight = flight.height
     for (let i = 0; i < steps; i++) {
       const distance = stepFlight(flight, input, dt / steps, probe)
-      if (distance) lead(flight.position, flight.heading, distance, flight.position)
+      if (distance) {
+        const point = trace(flight.position, flight.heading, distance)
+        flight.position.latitude = point.latitude
+        flight.position.longitude = point.longitude
+        flight.heading = point.heading
+      }
       flight.position.height = flight.height
     }
+    flight.verticalRate = (flight.height - previousHeight) / dt
     place(dt)
     announce()
     if (now - flight.hudTime > 120) {
@@ -158,9 +208,13 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
     if (flight) {
       controls.enableInputs = previousInputs
       controls.enableCollisionDetection = previousCollision
+      canvas.style.touchAction = previousTouchAction
+      canvas.classList.remove('cabina-activa')
     }
     flight = null
     panel.hidden = true
+    delete panel.dataset.view
+    motionMarker?.setAttribute('hidden', '')
     delete panel.dataset.flightPhase
     start.hidden = false
     start.disabled = false
@@ -192,13 +246,17 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
     }
     previousInputs = controls.enableInputs
     previousCollision = controls.enableCollisionDetection
+    previousTouchAction = canvas.style.touchAction
+    canvas.style.touchAction = 'none'
+    canvas.classList.add('cabina-activa')
+    look.yaw = look.pitch = 0
     controls.enableInputs = false
     // The onboard camera uses its own ground guard while piloting.
     controls.enableCollisionDetection = false
     const gap = camera.positionCartographic.height - ground
     position.height = ground + (gap >= 220 && gap <= 900 ? gap : 460)
     flight = { ...newFlight(position.height, ground, camera.heading), position,
-      last: performance.now(), hudTime: 0, paused: false, cameraLift: 0 }
+      last: performance.now(), hudTime: 0, paused: false, cameraLift: 0, verticalRate: 0 }
     start.hidden = true
     panel.hidden = false
     pause.textContent = 'Pausar vuelo'
@@ -215,6 +273,31 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
   }
   pause.addEventListener('click', togglePause)
   exit.addEventListener('click', finish)
+  recenter?.addEventListener('click', centerLook)
+  canvas.addEventListener('pointerdown', event => {
+    if (!flight || event.button !== 0 || look.pointer !== null) return
+    event.preventDefault()
+    look.pointer = event.pointerId
+    look.x = event.clientX
+    look.y = event.clientY
+    canvas.setPointerCapture(event.pointerId)
+  })
+  canvas.addEventListener('pointermove', event => {
+    if (!flight || look.pointer !== event.pointerId) return
+    event.preventDefault()
+    const sensitivity = event.pointerType === 'touch' ? .006 : .004
+    look.yaw = clamp(look.yaw + (event.clientX - look.x) * sensitivity, -Math.PI, Math.PI)
+    look.pitch = clamp(look.pitch + (look.y - event.clientY) * sensitivity, -Math.PI / 2, Math.PI / 2)
+    look.x = event.clientX
+    look.y = event.clientY
+    place()
+  })
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+    canvas.addEventListener(type, event => { if (look.pointer === event.pointerId) releaseLook() })
+  }
+  canvas.addEventListener('dblclick', event => {
+    if (flight && event.button === 0) { event.preventDefault(); centerLook() }
+  })
   window.addEventListener('blur', clearInputs)
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) return
@@ -225,6 +308,11 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
     if (!flight) return
     if (event.code === 'Escape') { event.preventDefault(); finish(); return }
     if (event.code === 'KeyP' && !event.repeat) { event.preventDefault(); togglePause(); return }
+    if (event.code === 'KeyC' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+      event.preventDefault()
+      if (!event.repeat) centerLook()
+      return
+    }
     if (!CONTROL.has(event.code) || event.altKey || event.ctrlKey || event.metaKey) return
     event.preventDefault()
     if (active() && !keys.has(event.code)) {

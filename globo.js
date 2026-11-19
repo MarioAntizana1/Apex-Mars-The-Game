@@ -1,7 +1,7 @@
 import { preloadBase } from './base-global.js?v=olimpo'
 import { marinerisViews } from './marineris.js?v=color'
 import { ctxDirecto } from './ctx-directo.js?v=color'
-import { crearVuelo } from './vuelo.js?v=espacio'
+import { crearVuelo } from './vuelo.js?v=cabina'
 import { atmosferaMarciana, stylishTiles } from './imagen-marciana.js'
 
 const C = window.Cesium
@@ -243,6 +243,7 @@ async function start() {
     })
   }
   viewer.screenSpaceEventHandler.setInputAction(({ position }) => {
+    if (!document.querySelector('#vuelo-panel').hidden) return
     const picked = viewer.scene.pick(position)
     if (picked?.collection === pins || picked?.primitive instanceof C.PointPrimitive) go(picked.id, 3.1)
   }, C.ScreenSpaceEventType.LEFT_CLICK)

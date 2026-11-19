@@ -86,58 +86,99 @@ summary { cursor: pointer; }
 #fuente-directa:empty { display: none; }
 
 body:has(#vuelo-panel:not([hidden])) #panel { display: none; }
-#vuelo-panel::before {
-  content: '';
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  box-sizing: border-box;
-  width: 12px;
-  height: 12px;
-  border: 1px solid #fff1e8c9;
-  border-radius: 50%;
-  box-shadow: 0 0 2px #100c0b;
-  pointer-events: none;
-}
+body:has(#vuelo-panel:not([hidden])) #mapa canvas { touch-action: none; }
 #vuelo-panel {
+  --hud-tinta: #e4f8f5;
+  --hud-tenue: #a3c4c9;
+  --hud-acento: #8ceadd;
+  --hud-borde: #4e7782;
+  --hud-fondo: #0d181eee;
+  --acento: var(--hud-acento);
   position: fixed;
   z-index: 2;
   inset: var(--arriba) var(--derecha) calc(env(safe-area-inset-bottom) + 1.75rem) var(--izquierda);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: minmax(0, 1fr) auto;
   align-items: start;
   gap: .5rem;
+  color: var(--hud-tinta);
   pointer-events: none;
   font-size: .8125rem;
+  line-height: 1.35;
 }
+.vuelo-reticula, #vuelo-vector {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 2px #071116);
+  pointer-events: none;
+}
+.vuelo-reticula {
+  top: 50%;
+  left: 50%;
+  width: clamp(4.75rem, 13vmin, 8.5rem);
+  color: #e4f8f5b8;
+}
+.vuelo-reticula path { vector-effect: non-scaling-stroke; }
+#vuelo-vector { width: 2.45rem; color: #ffd18d; stroke-width: 1.7; }
 .vuelo-hud {
+  position: relative;
   box-sizing: border-box;
-  width: min(100%, 20rem);
-  max-height: 50dvh;
+  width: min(100%, 22rem);
+  max-height: min(100%, 48dvh);
   overflow: auto;
   overscroll-behavior: contain;
-  padding: .5rem .6rem;
-  background: var(--superficie);
-  border: 1px solid var(--borde);
-  border-radius: .6rem;
+  padding: .55rem .7rem .3rem;
+  background: linear-gradient(140deg, #1c3035, transparent 60%), var(--hud-fondo);
+  border: 1px solid var(--hud-borde);
+  border-radius: .32rem 1.15rem .32rem .32rem;
+  border-top-color: var(--hud-acento);
+  pointer-events: auto;
+  touch-action: pan-y;
+}
+.vuelo-cabecera { display: grid; gap: .12rem; }
+.vuelo-identificador, .vuelo-datos dt {
+  color: var(--hud-tenue);
+  font: 600 .64rem/1.3 ui-monospace, Consolas, monospace;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+.vuelo-identificador { color: var(--hud-acento); }
+#titulo-vuelo { margin: 0; font-size: 1.05rem; line-height: 1.15; }
+#estado-vuelo { color: var(--hud-acento); overflow-wrap: anywhere; }
+#estado-vuelo p { margin: 0; }
+#vuelo-panel:is([data-flight-phase='ground'], [data-flight-phase='landing'], [data-flight-phase='waiting'], [data-flight-phase='recovery']) #estado-vuelo { color: #ffd18d; }
+.vuelo-datos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .2rem .55rem;
+  margin: .55rem 0 0;
+  font-variant-numeric: tabular-nums;
+}
+.vuelo-datos > div { min-width: 0; border-top: 1px solid #4e7782a3; padding-top: .22rem; }
+.vuelo-datos dd { margin: .1rem 0 0; overflow-wrap: anywhere; }
+:is(#velocidad-nave, #rumbo-nave) { font: 600 .875rem/1.3 ui-monospace, Consolas, monospace; }
+.vuelo-ayuda summary { box-sizing: border-box; min-height: 44px; padding: .72rem 0; color: var(--hud-acento); }
+.vuelo-ayuda summary:focus-visible { outline-offset: -2px; }
+.vuelo-ayuda p { margin: 0 0 .5rem; }
+#vuelo-panel kbd { color: var(--hud-acento); font-size: 1em; }
+.pista-despegue { display: none; margin: 0 0 .25rem; }
+#vuelo-panel[data-flight-phase='ground'] .pista-despegue { display: block; }
+.vuelo-acciones { justify-content: flex-end; }
+#vuelo-panel button {
+  background: var(--hud-fondo);
+  border-color: var(--hud-borde);
+  border-radius: .3rem .6rem .3rem .3rem;
+  font-weight: 600;
   pointer-events: auto;
 }
-.vuelo-cabecera { display: flex; align-items: baseline; flex-wrap: wrap; gap: .1rem .45rem; }
-#titulo-vuelo { margin: 0; font-size: 1rem; }
-#estado-vuelo { color: #f3be9d; }
-#estado-vuelo p { margin: 0; }
-.vuelo-datos { display: grid; grid-template-columns: 1fr 1fr; gap: .25rem .55rem; margin: .35rem 0 0; font-variant-numeric: tabular-nums; }
-.vuelo-datos dt { color: #f3be9d; font-size: .7rem; }
-.vuelo-datos dd { margin: 0; }
-.vuelo-ayuda { margin-top: .25rem; }
-.vuelo-ayuda summary { box-sizing: border-box; display: list-item; width: fit-content; padding-block: .25rem; color: var(--acento); }
-.vuelo-ayuda p { margin: .25rem 0; }
-#vuelo-panel kbd { color: var(--acento); font-size: 1em; }
-.pista-despegue { display: none; margin: .25rem 0 0; }
-#vuelo-panel[data-flight-phase='ground'] .pista-despegue { display: block; }
-.vuelo-acciones { justify-content: flex-end; pointer-events: auto; }
+#vuelo-panel button:active, #vuelo-panel .is-pressed { background: #284b53; border-color: var(--hud-acento); }
+#vuelo-panel[data-view='free'] #vuelo-recentrar { border-color: var(--hud-acento); color: var(--hud-acento); }
+@media (hover: hover) { #vuelo-panel button:hover:not(:disabled) { background: #284b53; } }
 .mandos-tactiles { display: none; grid-column: 1 / -1; align-self: end; justify-content: space-between; gap: .25rem; }
 .mando-direccion, .mando-empuje { display: grid; gap: .2rem; grid-auto-columns: 44px; }
 .mando-direccion { grid-template-areas: '. up .' 'left down right'; }
@@ -146,8 +187,6 @@ body:has(#vuelo-panel:not([hidden])) #panel { display: none; }
   box-sizing: border-box;
   height: 44px;
   padding: 0 .2rem;
-  background: #312119eb;
-  pointer-events: auto;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -167,13 +206,19 @@ body:has(#vuelo-panel:not([hidden])) #panel { display: none; }
 @media (max-width: 42rem) {
   :root { --margen: .5rem; }
   #controles { max-height: min(72dvh, calc(100dvh - var(--arriba) - env(safe-area-inset-bottom) - 2rem)); }
-  .vuelo-hud { max-height: 42dvh; }
+  .vuelo-hud { max-height: min(100%, 44dvh); padding-inline: .5rem; }
   .vuelo-acciones { flex-direction: column; align-items: stretch; }
   .vuelo-acciones button { padding-inline: .4rem; }
 }
+@media (max-height: 27rem) {
+  .vuelo-hud { max-height: min(100%, 42dvh); }
+}
+@media (max-height: 27rem) and (min-width: 31rem) {
+  .vuelo-acciones { flex-direction: row; }
+  .vuelo-hud { width: min(100%, 19rem); }
+}
 @media (any-pointer: coarse), (pointer: coarse), (hover: none) {
   .mandos-tactiles { display: flex; }
-  .vuelo-ayuda summary { padding-block: .4rem; }
 }
 @media (pointer: coarse), (hover: none) {
   .con-teclado { display: none; }

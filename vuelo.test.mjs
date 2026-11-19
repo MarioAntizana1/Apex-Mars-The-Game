@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { followArc } from './flight-path.js'
 import test from 'node:test'
 import { aboveGround, belly, flightPhase, newFlight, stepFlight, MAX_FLIGHT_ALTITUDE, TERRAIN_FREE_ALTITUDE } from './flight-dynamics.js'
 
@@ -143,6 +144,21 @@ test('reenters from space and waits safely for missing terrain before descending
   tick(state, 7, dive)
   assert.equal(flightPhase(state), 'air')
   assert.ok(state.height < hold - 20000)
+})
+
+test('transports the course across Mars without zig-zag or forcing a constant bearing', () => {
+  const start = { latitude: .91, longitude: 3.11, heading: 1.13 }
+  const total = (120000 / 3.6) * 30 / (3396190 + 314000)
+  const direct = followArc(start.latitude, start.longitude, start.heading, total, {})
+  const segmented = { ...start }
+  for (let n = 0; n < 600; n++) {
+    followArc(segmented.latitude, segmented.longitude, segmented.heading, total / 600, segmented)
+  }
+  assert.ok(direct.longitude < 0, 'crosses the antimeridian')
+  assert.ok(Math.abs(direct.heading - start.heading) > .3, 'compass bearing changes on a straight great-circle course')
+  for (const key of ['latitude', 'longitude', 'heading']) {
+    assert.ok(Math.abs(direct[key] - segmented[key]) < 1e-10, key)
+  }
 })
 
 test('detects a steep rise ahead before reaching it', () => {
