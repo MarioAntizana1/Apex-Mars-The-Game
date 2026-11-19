@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { aboveGround, belly, flightPhase, newFlight, stepFlight } from './flight-dynamics.js'
+import { aboveGround, belly, flightPhase, newFlight, stepFlight, MAX_FLIGHT_ALTITUDE, TERRAIN_FREE_ALTITUDE } from './flight-dynamics.js'
 
 const dt = 1 / 60
 const controls = (overrides = {}) => ({ pitch: 0, steer: 0, throttle: 0, brake: false, ...overrides })
@@ -117,6 +117,32 @@ test('skirts the terrain in a turbo dive and can still brake to a full landing',
   tick(state, 40, controls({ pitch: -1, brake: true }))
   assert.equal(flightPhase(state), 'ground')
   assert.equal(state.speed, 0)
+})
+
+test('climbs from low flight into space and respects the upper altitude limit', () => {
+  const state = newFlight(flat() + 460, flat(), 0)
+  const climb = controls({ pitch: 1, throttle: 1 })
+  tick(state, 75, climb, () => undefined)
+  assert.equal(flightPhase(state), 'space')
+  assert.ok(state.height > 100000)
+  tick(state, 130, climb, () => { throw new Error('spaceflight requested terrain') })
+  assert.equal(state.height, MAX_FLIGHT_ALTITUDE)
+  assert.equal(state.sink, 0)
+})
+
+test('reenters from space and waits safely for missing terrain before descending again', () => {
+  const state = newFlight(112000, flat(), 0)
+  state.speed = 120000 / 3.6
+  const dive = controls({ pitch: -1 })
+  assert.ok(tick(state, 14, dive, () => undefined).distance > 200000)
+  assert.equal(flightPhase(state), 'waiting')
+  assert.ok(state.height <= TERRAIN_FREE_ALTITUDE && state.height > TERRAIN_FREE_ALTITUDE - 200)
+  const hold = state.height
+  tick(state, 2, dive, () => undefined)
+  assert.equal(state.height, hold)
+  tick(state, 7, dive)
+  assert.equal(flightPhase(state), 'air')
+  assert.ok(state.height < hold - 20000)
 })
 
 test('detects a steep rise ahead before reaching it', () => {

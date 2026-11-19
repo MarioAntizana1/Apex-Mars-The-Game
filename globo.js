@@ -1,7 +1,7 @@
 import { preloadBase } from './base-global.js?v=olimpo'
 import { marinerisViews } from './marineris.js?v=color'
 import { ctxDirecto } from './ctx-directo.js?v=color'
-import { crearVuelo } from './vuelo.js?v=turbo'
+import { crearVuelo } from './vuelo.js?v=espacio'
 import { atmosferaMarciana, stylishTiles } from './imagen-marciana.js'
 
 const C = window.Cesium
@@ -99,6 +99,15 @@ async function start() {
     skyAtmosphere: false, shadows: false, requestRenderMode: true,
   })
   viewer.scene.backgroundColor = C.Color.fromCssColorString('#100c0b')
+  const starFace = face => `${window.CESIUM_BASE_URL}Assets/Textures/SkyBox/tycho2t3_80_${face}.jpg`
+  const stars = viewer.scene.skyBox = new C.SkyBox({ show: false, sources: {
+    positiveX: starFace('px'), negativeX: starFace('mx'),
+    positiveY: starFace('py'), negativeY: starFace('my'),
+    positiveZ: starFace('pz'), negativeZ: starFace('mz'),
+  } })
+  viewer.scene.preRender.addEventListener(() => {
+    stars.show = viewer.camera.positionCartographic.height > 65000
+  })
   atmosferaMarciana(C, viewer.scene, globe)
   const controls = viewer.scene.screenSpaceCameraController
   controls.minimumZoomDistance = 120

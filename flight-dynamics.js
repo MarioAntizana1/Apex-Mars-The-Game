@@ -9,7 +9,13 @@ const takeoffSpeed = 58
 const boostStart = 280
 const topSpeed = 120000 / 3.6
 const turboFactor = speed => clamp((speed - boostStart) / 2600, 0, 1)
-const verticalLimit = 380
+export const SPACE_ALTITUDE = 100000 // Gameplay boundary, not a sharp atmospheric cutoff.
+export const MAX_FLIGHT_ALTITUDE = 600000
+export const TERRAIN_FREE_ALTITUDE = 45000 // Above every Martian summit, relative to the datum.
+
+function verticalLimit(agl) {
+  return 380 + 7120 * clamp((agl - 3500) / 24000, 0, 1)
+}
 
 export function belly(pitch = 0, bank = 0) {
   // The cohete.glb bounds (14.08 m nose/tail, 6.4 m span on the wider
@@ -29,16 +35,18 @@ export function aboveGround(state) {
 
 export function flightPhase(state) {
   return state.waiting ? 'waiting' : state.mode === 'ground' ? 'ground' :
-    state.recovery > 0 ? 'recovery' : state.landing ? 'landing' : 'air'
+    state.recovery > 0 ? 'recovery' : state.landing ? 'landing' : state.height >= SPACE_ALTITUDE ? 'space' : 'air'
 }
 
 // Advance one short step, returning the distance the aircraft actually travelled.
 export function stepFlight(state, input, dt, probe) {
   const grounded = state.mode === 'ground'
   const { pitch, steer, throttle, brake } = input
-  const current = probe(0, state.heading)
+  const terrainFree = !grounded && state.height > TERRAIN_FREE_ALTITUDE
+  const current = terrainFree ? undefined : probe(0, state.heading)
   const known = Number.isFinite(current)
   const agl = state.height - Math.max(state.ground, known ? current : state.rawGround) - belly(state.pitch, state.bank)
+  const vertical = verticalLimit(agl)
   const recovery = !grounded && state.recovery > 0
   const flare = !grounded && !recovery && pitch <= 0 && (brake || state.speed <= 77)
     ? clamp((95 - agl) / 95, 0, 1) : 0
@@ -60,8 +68,9 @@ export function stepFlight(state, input, dt, probe) {
   const rotate = grounded && !brake && pitch > 0 && state.speed >= takeoffSpeed
   const bankTarget = grounded || recovery ? 0 : steer * rad(48 - 33 * flare)
   const cruise = grounded ? 0 : turboFactor(state.speed)
+  const highAltitude = clamp((agl - 12000) / 26000, 0, 1)
   const pitchTarget = grounded ? (rotate ? rad(14) : 0) : recovery ? rad(brake ? 31 : 23) :
-    pitch >= 0 ? pitch * rad(35 - 13 * cruise) : pitch * rad(41 - 33 * Math.max(flare, cruise))
+    pitch >= 0 ? pitch * rad(35 - 13 * cruise) : pitch * rad(41 - 33 * Math.max(flare, cruise) + 20 * highAltitude * cruise)
   state.bank = mix(state.bank, bankTarget, 4.6, dt)
   state.pitch = mix(state.pitch, pitchTarget, 4.2, dt)
   // Airborne yaw follows the bank, not the key. On the ground, steering can
@@ -71,6 +80,15 @@ export function stepFlight(state, input, dt, probe) {
   state.heading = turn(state.heading, yaw * dt)
 
   const distance = state.speed * Math.cos(state.pitch) * dt
+  if (terrainFree) {
+    // Spaceflight must not stop while the surface streams far below the craft.
+    state.waiting = false
+    state.recovery = Math.max(0, state.recovery - dt)
+    state.sink = mix(state.sink, clamp(Math.sin(state.pitch) * state.speed, -vertical, vertical), 4, dt)
+    state.height = Math.min(MAX_FLIGHT_ALTITUDE, state.height + state.sink * dt)
+    if (state.height === MAX_FLIGHT_ALTITUDE) state.sink = Math.min(0, state.sink)
+    return distance
+  }
   const next = known && distance > 0 ? probe(distance, state.heading) : current
   const clearance = belly(state.pitch, state.bank)
   if (!Number.isFinite(next)) {
@@ -80,8 +98,8 @@ export function stepFlight(state, input, dt, probe) {
     state.sink = 0
     if (grounded) state.speed = 0
     const reference = Math.max(state.rawGround, known ? current : -Infinity)
-    const rise = !grounded ? clamp(Math.sin(state.pitch) * state.speed, 0, verticalLimit) * dt : 0
-    state.height = Math.max(reference + clearance, state.height + Math.min(rise, Math.max(0, reference + 12000 - state.height)))
+    const rise = !grounded ? clamp(Math.sin(state.pitch) * state.speed, 0, vertical) * dt : 0
+    state.height = Math.max(reference + clearance, Math.min(MAX_FLIGHT_ALTITUDE, state.height + rise))
     return 0
   }
   state.waiting = false
@@ -109,13 +127,13 @@ export function stepFlight(state, input, dt, probe) {
     return distance
   }
 
-  let sinkTarget = clamp(Math.sin(state.pitch) * state.speed, -verticalLimit, verticalLimit)
+  let sinkTarget = clamp(Math.sin(state.pitch) * state.speed, -vertical, vertical)
   if (flare > 0) {
     sinkTarget = Math.max(sinkTarget, -5 - 40 * (1 - flare) ** 2)
     if (brake && pitch === 0 && agl < 20) sinkTarget = Math.min(sinkTarget, -2)
   }
   state.sink = mix(state.sink, sinkTarget, flare > 0 ? 7 : 4, dt)
-  const desired = Math.min(state.height + state.sink * dt, Math.max(state.ground, next) + 12000)
+  const desired = state.height + state.sink * dt
   const turboFloor = floor + 38 * cruise
   if (!recovery && cruise > 0 && desired <= turboFloor) {
     // Fly above the rendered DEM instead of braking or touching down at turbo speed.

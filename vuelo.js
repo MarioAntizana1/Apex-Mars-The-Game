@@ -1,4 +1,4 @@
-import { aboveGround, flightPhase, newFlight, stepFlight } from './flight-dynamics.js?v=turbo'
+import { aboveGround, flightPhase, newFlight, stepFlight, TERRAIN_FREE_ALTITUDE } from './flight-dynamics.js?v=espacio'
 
 const CONTROL = new Map([
   ['KeyW', 'up'], ['ArrowUp', 'up'], ['KeyS', 'down'], ['ArrowDown', 'down'],
@@ -7,6 +7,7 @@ const CONTROL = new Map([
 ])
 const PHASE = {
   air: 'Vuelo libre · cohete',
+  space: 'Espacio · sobre Marte',
   landing: 'Aproximación · frena, baja y nivela las alas',
   ground: 'En tierra · alinea y mantén acelerar + subir para despegar',
   recovery: 'Recuperando altura · frena antes de volver a bajar',
@@ -69,7 +70,8 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
   function hud() {
     speedLabel.textContent = `${speedFormat.format(flight.speed * 3.6)} km/h`
     headingLabel.textContent = `${Math.round(deg(flight.heading)) % 360}°`
-    heightLabel.textContent = flight.waiting ? 'Terreno sin confirmar' : `≈ ${Math.round(aboveGround(flight))} m sobre el terreno`
+    heightLabel.textContent = flight.height > TERRAIN_FREE_ALTITUDE ? `${(flight.height / 1000).toLocaleString('es', { maximumFractionDigits: 1 })} km sobre la referencia`
+      : flight.waiting ? 'Terreno sin confirmar' : `≈ ${speedFormat.format(aboveGround(flight))} m sobre el terreno`
     positionLabel.textContent = `${deg(flight.position.latitude).toFixed(5)}°, ${deg(flight.position.longitude).toFixed(5)}°`
   }
 
@@ -89,7 +91,7 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
     v.multiplyByScalar(bodyUp, 2.5, offset)
     v.add(destination, offset, destination)
     ellipsoid.cartesianToCartographic(destination, sample)
-    const ground = globe.getHeight(sample)
+    const ground = sample.height <= TERRAIN_FREE_ALTITUDE ? globe.getHeight(sample) : undefined
     const safetyLift = Math.max(0, (Number.isFinite(ground) ? ground : flight.rawGround) + 2 - sample.height)
     // Lower slowly when the underlying tile changes or the camera crosses a
     // ridge; only the safety clamp can move it upward faster.
@@ -99,16 +101,17 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
       ellipsoid.cartographicToCartesian(sample, destination)
     }
     const rad = C.Math.toRadians
+    const highView = clamp((position.height - 25000) / 75000, 0, 1)
     camera.setView({ destination, orientation: {
       heading,
-      pitch: clamp(pitch * .55 - rad(8), rad(-30), rad(12)),
+      pitch: clamp(pitch * (.55 + .6 * highView) - rad(8 + 7 * highView), rad(-30 - 25 * highView), rad(12)),
       roll: bank * .6,
     } })
     scene.requestRender()
   }
 
   function lead(position, heading, distance, result) {
-    const step = distance / ellipsoid.maximumRadius
+    const step = distance / (ellipsoid.maximumRadius + position.height)
     const sinLat = Math.sin(position.latitude), cosLat = Math.cos(position.latitude)
     const sinStep = Math.sin(step), cosStep = Math.cos(step)
     const lat = Math.asin(clamp(sinLat * cosStep + cosLat * sinStep * Math.cos(heading), -1, 1))
@@ -134,7 +137,8 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
       throttle: Number(held.has('fast')) - Number(held.has('slow')),
       brake: held.has('brake'),
     }
-    const steps = Math.max(Math.ceil(dt / .03), Math.ceil((flight.speed + 24) * dt / 30))
+    const checkTerrain = flight.height <= TERRAIN_FREE_ALTITUDE + 1000
+    const steps = Math.max(Math.ceil(dt / .03), checkTerrain ? Math.ceil((flight.speed + 24) * dt / 30) : 1)
     for (let i = 0; i < steps; i++) {
       const distance = stepFlight(flight, input, dt / steps, probe)
       if (distance) lead(flight.position, flight.heading, distance, flight.position)
