@@ -93,35 +93,30 @@ test('rejects a touchdown even on a steep downhill slope', () => {
   assert.ok(state.height >= hillside(distance) + belly(state.pitch, state.bank))
 })
 
-test('reaches 12,000 km/h at altitude, but preserves the low-flight limit', () => {
-  const input = controls({ throttle: 1 })
-  const low = newFlight(flat() + 500, flat(), 0)
-  tick(low, 20, input)
-  assert.equal(low.speed, 280)
-  const high = newFlight(flat() + 460, flat(), 0)
-  const { distance } = tick(high, 31, controls({ throttle: 1, pitch: 1 }))
-  assert.ok(aboveGround(high) > 6000)
-  assert.equal(Math.round(high.speed * 3.6), 12000)
-  assert.ok(distance > 25000)
-  tick(high, 1, controls({ steer: 1 }))
-  assert.ok(high.heading > .025)
-  tick(high, 15, controls({ brake: true }))
-  assert.equal(high.speed, 31)
+test('reaches 120,000 km/h below 100 m and turns responsively at top speed', () => {
+  const state = newFlight(flat() + 70, flat(), 0)
+  tick(state, 25, controls({ throttle: 1 }))
+  assert.equal(Math.round(state.speed * 3.6), 120000)
+  assert.ok(aboveGround(state) < 100)
+  tick(state, 1, controls({ steer: 1 }))
+  assert.ok(state.heading > .9 && Math.abs(state.bank) > .7)
+  assert.equal(Math.round(state.speed * 3.6), 120000)
 })
 
-test('descends from cruise without a speed snap and can still land', () => {
-  const state = newFlight(flat() + 6500, flat(), 0)
-  tick(state, 15, controls({ throttle: 1 }))
-  let i = 0
-  while (aboveGround(state) > 800 && i++ < 120 / dt) {
-    const before = state.speed
-    stepFlight(state, controls({ pitch: -1 }), dt, flat)
-    assert.ok(before - state.speed < 10)
-  }
-  assert.ok(aboveGround(state) <= 800)
-  assert.ok(state.speed <= 280 && flightPhase(state) === 'air')
-  tick(state, 65, controls({ pitch: -1, brake: true }))
+test('skirts the terrain in a turbo dive and can still brake to a full landing', () => {
+  const state = newFlight(flat() + 3000, flat(), 0)
+  tick(state, 25, controls({ throttle: 1 }))
+  const { minClearance } = tick(state, 10, controls({ pitch: -1 }))
+  assert.ok(minClearance >= flat() + 38 - 1e-8)
+  assert.ok(aboveGround(state) >= 38 - 1e-8 && aboveGround(state) < 50)
+  assert.equal(Math.round(state.speed * 3.6), 120000)
+  assert.equal(flightPhase(state), 'air')
+  const before = state.speed
+  stepFlight(state, controls({ brake: true }), dt, flat)
+  assert.ok(state.speed < before && state.speed > before * .98)
+  tick(state, 40, controls({ pitch: -1, brake: true }))
   assert.equal(flightPhase(state), 'ground')
+  assert.equal(state.speed, 0)
 })
 
 test('detects a steep rise ahead before reaching it', () => {

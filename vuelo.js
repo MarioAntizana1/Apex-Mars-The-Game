@@ -1,4 +1,4 @@
-import { aboveGround, flightPhase, newFlight, stepFlight } from './flight-dynamics.js?v=crucero'
+import { aboveGround, flightPhase, newFlight, stepFlight } from './flight-dynamics.js?v=turbo'
 
 const CONTROL = new Map([
   ['KeyW', 'up'], ['ArrowUp', 'up'], ['KeyS', 'down'], ['ArrowDown', 'down'],
