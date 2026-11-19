@@ -1,7 +1,8 @@
 import { preloadBase } from './base-global.js?v=olimpo'
-import { marinerisViews } from './marineris.js?v=vuelo'
-import { ctxDirecto } from './ctx-directo.js'
-import { crearVuelo } from './vuelo.js'
+import { marinerisViews } from './marineris.js?v=color'
+import { ctxDirecto } from './ctx-directo.js?v=color'
+import { crearVuelo } from './vuelo.js?v=jet'
+import { atmosferaMarciana, stylishTiles } from './imagen-marciana.js'
 
 const C = window.Cesium
 const status = document.querySelector('#estado')
@@ -16,7 +17,7 @@ async function load(path) {
 async function start() {
   const params = new URLSearchParams(location.search)
   const trial = params.get('marineris') === '1' ? await (await load('bloques/marineris/indice.json')).json() : null
-  const { relieve, imagenes, destinos } = await (await load('bloques/indice.json?v=olimpo')).json()
+  const { relieve, imagenes, destinos } = await (await load('bloques/indice.json?v=caldera')).json()
   const ellipsoid = new C.Ellipsoid(3396190, 3396190, 3396190)
   C.Ellipsoid.default = ellipsoid
   const scheme = new C.GeographicTilingScheme({ ellipsoid })
@@ -88,7 +89,6 @@ async function start() {
   }
   const globe = new C.Globe(ellipsoid)
   globe.depthTestAgainstTerrain = true
-  globe.showGroundAtmosphere = false
   globe.tileCacheSize = 160
   globe.preloadAncestors = true
   globe.preloadSiblings = true
@@ -99,7 +99,7 @@ async function start() {
     skyAtmosphere: false, shadows: false, requestRenderMode: true,
   })
   viewer.scene.backgroundColor = C.Color.fromCssColorString('#100c0b')
-  viewer.scene.fog.enabled = false
+  atmosferaMarciana(C, viewer.scene, globe)
   const controls = viewer.scene.screenSpaceCameraController
   controls.minimumZoomDistance = 120
   controls.maximumZoomDistance = 16000000
@@ -115,11 +115,19 @@ async function start() {
   })
   function addImagery({ id, bbox, nivel, columnas, filas = 1 }, prefix = '', show = true) {
     const rectangle = C.Rectangle.fromDegrees(...bbox)
+    const url = `./datos/bloques/${prefix}imagen/${id}/{z}/{x}/{y}.webp`
     const imagery = new C.UrlTemplateImageryProvider({
-      url: `./datos/bloques/${prefix}imagen/${id}/{z}/{x}/{y}.webp`, rectangle, maximumLevel: nivel,
+      url, rectangle, maximumLevel: nivel,
       tilingScheme: new C.GeographicTilingScheme({
         ellipsoid, rectangle, numberOfLevelZeroTilesX: columnas, numberOfLevelZeroTilesY: filas,
       }),
+    })
+    if (prefix === 'marineris/') stylishTiles(C, imagery, url, {
+      look: 'hirise', feather: id === 'vuelo' ? .13 : .045, transparentBlack: id === 'vuelo',
+    })
+    else if (id === 'olimpo') stylishTiles(C, imagery, url, { feather: .22 })
+    else if (id === 'jezero' || id === 'alrededores') stylishTiles(C, imagery, url, {
+      look: 'ctx', feather: .12, transparentBlack: true,
     })
     const layer = new C.ImageryLayer(imagery, { show })
     globe.imageryLayers.add(layer)
@@ -210,7 +218,9 @@ async function start() {
   const pins = viewer.scene.primitives.add(new C.PointPrimitiveCollection())
   const distance = new C.DistanceDisplayCondition(90000, 16000000)
   for (const { id, nombre, lon, lat } of destinos) {
-    if (id !== 'jezero') views[id] = [lon, lat, id === 'olimpo' ? 150000 : 420000, -80, nombre]
+    if (id !== 'jezero') views[id] = id === 'olimpo'
+      ? [-133.2, 18.31, 175000, -90, 'Monte Olimpo · caldera']
+      : [lon, lat, 420000, -80, nombre]
     const button = document.createElement('button')
     button.type = 'button'
     button.textContent = nombre
@@ -228,17 +238,17 @@ async function start() {
     if (picked?.collection === pins || picked?.primitive instanceof C.PointPrimitive) go(picked.id, 3.1)
   }, C.ScreenSpaceEventType.LEFT_CLICK)
   go('global', 0)
-  let approachLayer
+  let firstLocalDetail
   if (trial) {
     const experiment = marinerisViews(C, viewer, trial, addImagery, showView)
-    approachLayer = experiment.approachLayer
+    firstLocalDetail = experiment.firstLayer
     const geometricError = provider.getLevelMaximumGeometricError.bind(provider)
     // Above level 15 the samples are the landing patch, not normal flight terrain.
     provider.getLevelMaximumGeometricError = level => level >= 15 && !experiment.fineTerrain()
       ? 1e-6 : geometricError(level)
     showView(experiment.initialView, 0)
   }
-  const updateCtx = ctxDirecto(C, viewer, scheme, approachLayer)
+  const updateCtx = ctxDirecto(C, viewer, scheme, firstLocalDetail)
   viewer.scene.preRender.addEventListener(() => updateCtx(globe.getHeight(viewer.camera.positionCartographic)))
   if (['lon', 'lat', 'altura'].every(key => params.has(key) && params.get(key).trim())) {
     const [lon, lat, height] = ['lon', 'lat', 'altura'].map(key => Number(params.get(key)))

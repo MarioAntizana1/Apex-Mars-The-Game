@@ -2,79 +2,101 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>The Game · Globo de Marte</title>
   <link rel="stylesheet" href="./node_modules/cesium/Build/Cesium/Widgets/widgets.css">
-  <style>
-    :root{color-scheme:dark;font:16px system-ui;background:#100c0b;color:#fff1e8}
-    body{margin:0} #mapa{position:fixed;inset:0} #panel{position:absolute;top:1rem;left:1rem;max-width:min(27rem,calc(100vw - 4rem));background:#211914ed;border:1px solid #735545;border-radius:.75rem;padding:1rem}
-    h1{margin:.15rem 0 .65rem;letter-spacing:-.04em}p{margin:.7rem 0}small,a{color:#f3be9d}
-    nav{display:flex;flex-wrap:wrap;gap:.45rem} h2{font-size:1rem;margin:.8rem 0 .45rem}button{font:inherit;color:inherit;border:1px solid #916650;background:#3e2a21;padding:.55rem;border-radius:.35rem;min-height:44px;cursor:pointer}
-    button:hover{background:#59362a}button:focus-visible{outline:2px solid #ffd59c;outline-offset:2px}
-    #panel:has(#marineris:not([hidden])){max-width:min(21rem,calc(100vw - 4rem));max-height:calc(100dvh - 4rem);overflow:auto}
-    #panel:has(#marineris:not([hidden])) :is(#vistas,#turismo,#destinos,#ayuda,#enlace-ius){display:none}
-    [data-vista][aria-pressed=true]{background:#59362a;border-color:#ffd59c}
-    #panel{max-height:calc(100dvh - 4rem);overflow:auto}
-    #panel:has(#vuelo-panel:not([hidden])){max-width:min(20rem,calc(100vw - 4rem))}
-    #panel:has(#vuelo-panel:not([hidden])) :is(#vistas,#turismo,#destinos,#ayuda,#enlace-ius,#marineris,#altitud-camara,#precarga,#detalle){display:none}
-    #pilotaje{margin:.15rem 0;background:#653820}
-    .ctx-control{display:flex;align-items:center;gap:.45rem;margin:.65rem 0 .25rem}
-    #fuente-directa{display:block;min-height:1.1em}
-    #vuelo-panel dl{display:grid;grid-template-columns:max-content 1fr;gap:.45rem .7rem;font-variant-numeric:tabular-nums}
-    #vuelo-panel dd{margin:0} #vuelo-panel kbd{color:#ffd59c;font-size:1em}
-  </style>
+  <link rel="stylesheet" href="./interfaz.css?v=1">
   <script>window.CESIUM_BASE_URL='./node_modules/cesium/Build/Cesium/'</script>
   <script src="./node_modules/cesium/Build/Cesium/Cesium.js" defer></script>
-  <script src="./globo.js?v=vuelo-ctx" type="module"></script>
+  <script src="./interfaz.js?v=2" type="module"></script>
+  <script src="./globo.js?v=panel-vuelo" type="module"></script>
 </head>
 <body>
   <main id="mapa" aria-label="Globo navegable de Marte"></main>
-  <aside id="panel">
-    <small>THE GAME / PILOTO CESIUM</small>
-    <h1>Marte sin recortes</h1>
-    <nav id="vistas" aria-label="Vistas de prueba">
-      <button id="global">Marte global</button>
-      <button id="jezero">Acercar a Jezero</button>
-      <button id="borde">Cruzar el borde de Jezero</button>
-      <button id="sobrevuelo" disabled>Sobrevolar Jezero</button>
-    </nav>
-    <h2 id="turismo">Destinos turísticos</h2>
-    <nav id="destinos" aria-labelledby="turismo"></nav>
-    <p id="enlace-ius"><a href="?marineris=1">Prueba de aproximación en Valles Marineris</a></p>
-    <p id="estado" role="status">Cargando relieve global…</p>
-    <p id="altura" hidden></p>
-    <p id="altitud-camara"></p>
-    <p id="precarga" role="status"></p>
-    <p id="detalle"></p>
-    <button id="pilotaje" disabled>Pilotar cohete</button>
-    <label class="ctx-control"><input id="activar-ctx" type="checkbox" checked disabled> Usar imágenes CTX directas</label>
-    <small id="fuente-directa"></small>
-    <section id="vuelo-panel" hidden aria-labelledby="titulo-vuelo">
-      <h2 id="titulo-vuelo">Mandos del cohete</h2>
-      <dl>
-        <dt>Velocidad</dt><dd id="velocidad-nave"></dd>
-        <dt>Rumbo</dt><dd id="rumbo-nave"></dd>
-        <dt>Altura</dt><dd id="altura-nave"></dd>
-        <dt>Posición</dt><dd id="posicion-nave"></dd>
-      </dl>
-      <p><kbd>W</kbd>/<kbd>S</kbd> subir o bajar · <kbd>A</kbd>/<kbd>D</kbd> girar · <kbd>R</kbd>/<kbd>F</kbd> acelerar o frenar. También puedes usar las flechas. <kbd>P</kbd> pausa · <kbd>Esc</kbd> salir.</p>
-      <nav aria-label="Modo de vuelo">
-        <button id="pausar-vuelo">Pausar vuelo</button>
-        <button id="salir-vuelo">Salir del vuelo</button>
-      </nav>
-    </section>
-    <section id="marineris" hidden>
-      <h2>Prueba · Ius Chasma</h2>
-      <nav aria-label="Vistas de Ius Chasma">
-        <button data-vista="panorama">Panorámica</button>
-        <button data-vista="vuelo">Vuelo bajo</button>
-        <button data-vista="aproximacion">Aproximación</button>
-      </nav>
-      <p id="marineris-detalle"></p>
-      <p><a href="./">Volver al globo</a></p>
-      <small><a href="./ius-chasma.md">Fuentes y resolución</a> · <a href="https://www.uahirise.org/dtm/PSP_007430_1725">HiRISE: NASA/JPL-Caltech/Universidad de Arizona</a>. Prueba de cámara, sin aterrizaje físico.</small>
-    </section>
-    <small id="ayuda">Arrastra para navegar, usa la rueda para acercarte y Ctrl + arrastre para inclinar. <a href="https://trek.nasa.gov/mars/">NASA/JPL</a> · Viking, MOLA y CTX.</small>
+  <aside id="panel" aria-label="Controles del globo">
+    <details id="controles">
+      <summary class="barra-panel">
+        <span class="marca">Marte sin recortes</span>
+        <span class="indicador-panel">Controles</span>
+      </summary>
+      <div id="contenido-panel">
+        <nav id="vistas" aria-label="Vistas de prueba">
+          <button id="global" type="button">Marte global</button>
+          <button id="jezero" type="button">Acercar a Jezero</button>
+          <button id="borde" type="button">Cruzar el borde de Jezero</button>
+          <button id="sobrevuelo" type="button" disabled>Sobrevolar Jezero</button>
+        </nav>
+        <h2 id="turismo">Destinos turísticos</h2>
+        <nav id="destinos" aria-labelledby="turismo"></nav>
+        <p id="enlace-ius"><a href="?marineris=1">Prueba de aproximación en Valles Marineris</a></p>
+        <div id="estado-mapa"><p id="estado" role="status">Cargando relieve global…</p></div>
+        <p id="altura" hidden></p>
+        <p id="altitud-camara"></p>
+        <p id="precarga" role="status"></p>
+        <p id="detalle"></p>
+        <button id="pilotaje" type="button" disabled>Pilotar cohete</button>
+        <label class="ctx-control"><input id="activar-ctx" type="checkbox" checked disabled> Usar imágenes CTX directas</label>
+        <small id="fuente-directa"></small>
+        <section id="marineris" hidden>
+          <h2>Prueba · Ius Chasma</h2>
+          <nav aria-label="Vistas de Ius Chasma">
+            <button type="button" data-vista="panorama">Panorámica</button>
+            <button type="button" data-vista="vuelo">Vuelo bajo</button>
+            <button type="button" data-vista="aproximacion">Aproximación</button>
+          </nav>
+          <p id="marineris-detalle"></p>
+          <p><a href="./">Volver al globo</a></p>
+          <small><a href="./ius-chasma.md">Fuentes y resolución</a> · <a href="https://www.uahirise.org/dtm/PSP_007430_1725">HiRISE: NASA/JPL-Caltech/Universidad de Arizona</a>. Prueba de cámara, sin aterrizaje físico.</small>
+        </section>
+        <small id="ayuda">
+          <span class="con-teclado">Arrastra para navegar, usa la rueda para acercarte y Ctrl + arrastre para inclinar.</span>
+          <span class="con-tacto">Arrastra para navegar y pellizca para acercarte o alejarte.</span>
+          <a href="https://trek.nasa.gov/mars/">NASA/JPL</a> · Viking, MOLA y CTX.
+        </small>
+      </div>
+    </details>
   </aside>
+  <section id="vuelo-panel" hidden aria-labelledby="titulo-vuelo">
+    <div class="vuelo-hud">
+      <div class="vuelo-cabecera">
+        <h2 id="titulo-vuelo">Cohete</h2>
+        <div id="estado-vuelo"></div>
+      </div>
+      <dl class="vuelo-datos">
+        <div><dt>Velocidad</dt><dd id="velocidad-nave"></dd></div>
+        <div><dt>Rumbo</dt><dd id="rumbo-nave"></dd></div>
+        <div><dt>Altura</dt><dd id="altura-nave"></dd></div>
+        <div><dt>Posición</dt><dd id="posicion-nave"></dd></div>
+      </dl>
+      <details class="vuelo-ayuda">
+        <summary>Ayuda de vuelo</summary>
+        <p class="con-teclado"><kbd>W</kbd>/<kbd>S</kbd> o <kbd>↑</kbd>/<kbd>↓</kbd> inclinan el morro; <kbd>A</kbd>/<kbd>D</kbd> o <kbd>←</kbd>/<kbd>→</kbd> giran; <kbd>R</kbd>/<kbd>F</kbd> ajustan el empuje y <kbd>B</kbd> aplica el aerofreno. <kbd>P</kbd> pausa; <kbd>Esc</kbd> sale.</p>
+        <p class="con-tacto">Mantén pulsadas las flechas para orientar el cohete, <strong>+</strong> o <strong>−</strong> para ajustar el empuje y <strong>Freno</strong> para frenar.</p>
+        <p class="con-teclado">Para despegar, mantén <kbd>R</kbd> y <kbd>W</kbd> (o <kbd>↑</kbd>).</p>
+        <p class="con-tacto">Para despegar, mantén <strong>+</strong> y <strong>↑</strong> a la vez.</p>
+      </details>
+      <p class="pista-despegue">
+        <span class="con-teclado">Despegue: mantén <kbd>R</kbd> y <kbd>W</kbd>.</span>
+        <span class="con-tacto">Despegue: mantén <strong>+</strong> y <strong>↑</strong>.</span>
+      </p>
+    </div>
+    <nav class="vuelo-acciones" aria-label="Modo de vuelo">
+      <button id="pausar-vuelo" type="button">Pausar vuelo</button>
+      <button id="salir-vuelo" type="button">Salir del vuelo</button>
+    </nav>
+    <div class="mandos-tactiles">
+      <div class="mando-direccion" role="group" aria-label="Dirección del cohete">
+        <button type="button" data-flight-control="up" aria-label="Inclinar el morro hacia arriba"><span aria-hidden="true">↑</span></button>
+        <button type="button" data-flight-control="left" aria-label="Girar a la izquierda"><span aria-hidden="true">←</span></button>
+        <button type="button" data-flight-control="down" aria-label="Inclinar el morro hacia abajo"><span aria-hidden="true">↓</span></button>
+        <button type="button" data-flight-control="right" aria-label="Girar a la derecha"><span aria-hidden="true">→</span></button>
+      </div>
+      <div class="mando-empuje" role="group" aria-label="Empuje y freno del cohete">
+        <button type="button" data-flight-control="slow" aria-label="Reducir empuje"><span aria-hidden="true">−</span></button>
+        <button type="button" data-flight-control="fast" aria-label="Aumentar empuje"><span aria-hidden="true">+</span></button>
+        <button type="button" data-flight-control="brake">Freno</button>
+      </div>
+    </div>
+  </section>
 </body>
 </html>

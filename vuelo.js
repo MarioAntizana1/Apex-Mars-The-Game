@@ -1,10 +1,18 @@
+import { aboveGround, flightPhase, newFlight, stepFlight } from './flight-dynamics.js'
+
 const CONTROL = new Map([
   ['KeyW', 'up'], ['ArrowUp', 'up'], ['KeyS', 'down'], ['ArrowDown', 'down'],
   ['KeyA', 'left'], ['ArrowLeft', 'left'], ['KeyD', 'right'], ['ArrowRight', 'right'],
-  ['KeyR', 'fast'], ['KeyF', 'slow'],
+  ['KeyR', 'fast'], ['KeyF', 'slow'], ['KeyB', 'brake'],
 ])
+const PHASE = {
+  air: 'Vuelo libre · cohete',
+  landing: 'Aproximación · frena, baja y nivela las alas',
+  ground: 'En tierra · alinea y mantén acelerar + subir para despegar',
+  recovery: 'Recuperando altura · frena antes de volver a bajar',
+  waiting: 'Esperando terreno · puedes girar o subir',
+}
 
-// shortcut: flight is arcade movement with clearance over the rendered DEM; landing needs a separate collision model.
 export function crearVuelo(C, viewer, status, stopFlyover) {
   const { scene, camera } = viewer
   const { globe, screenSpaceCameraController: controls } = scene
@@ -17,63 +25,99 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
   const headingLabel = document.querySelector('#rumbo-nave')
   const heightLabel = document.querySelector('#altura-nave')
   const positionLabel = document.querySelector('#posicion-nave')
+  const buttons = [...panel.querySelectorAll('[data-flight-control]')]
   const keys = new Set()
+  const pointers = new Map()
+  const buttonKeys = new Map()
   const origin = new C.Cartesian3()
   const destination = new C.Cartesian3()
   const direction = new C.Cartesian3()
   const forward = new C.Cartesian3()
+  const horizonUp = new C.Cartesian3()
+  const bodyUp = new C.Cartesian3()
   const up = new C.Cartesian3()
   const right = new C.Cartesian3()
-  const frame = new C.Matrix4()
-  const local = new C.Cartesian3()
+  const offset = new C.Cartesian3()
+  const desiredOffset = new C.Cartesian3()
   const attitude = new C.HeadingPitchRoll()
   const sample = new C.Cartographic()
-  const clearanceMin = 180
-  let model, loading, flight, previousInputs
+  const probePoint = new C.Cartographic()
+  let model, loading, flight, previousInputs, previousCollision
 
   const clamp = C.Math.clamp
-  const rad = C.Math.toRadians
   const deg = C.Math.toDegrees
-  const pressed = name => [...keys].some(key => CONTROL.get(key) === name)
-
-  function hud(ground) {
+  const active = () => flight && !flight.paused
+  const refreshButtons = () => {
+    const held = new Set([...pointers.values(), ...buttonKeys.values()].map(button => button.dataset.flightControl))
+    for (const code of keys) held.add(CONTROL.get(code))
+    for (const button of buttons) button.classList.toggle('is-pressed', held.has(button.dataset.flightControl))
+    return held
+  }
+  let held = new Set()
+  const refreshInputs = () => { held = refreshButtons() }
+  function clearInputs() {
+    keys.clear()
+    const captures = [...pointers]
+    pointers.clear()
+    buttonKeys.clear()
+    for (const [id, button] of captures) if (button.hasPointerCapture(id)) button.releasePointerCapture(id)
+    refreshInputs()
+  }
+  function announce() {
+    const phase = flightPhase(flight)
+    if (panel.dataset.flightPhase !== phase) panel.dataset.flightPhase = phase
+    const message = flight.paused ? 'Vuelo en pausa' : PHASE[phase]
+    if (status.textContent !== message) status.textContent = message
+  }
+  function hud() {
     speedLabel.textContent = `${Math.round(flight.speed * 3.6)} km/h`
     headingLabel.textContent = `${Math.round(deg(flight.heading)) % 360}°`
-    heightLabel.textContent = `≈ ${Math.round(flight.position.height - ground)} m sobre el terreno`
+    heightLabel.textContent = flight.waiting ? 'Terreno sin confirmar' : `≈ ${Math.round(aboveGround(flight))} m sobre el terreno`
     positionLabel.textContent = `${deg(flight.position.latitude).toFixed(5)}°, ${deg(flight.position.longitude).toFixed(5)}°`
   }
 
-  function place() {
+  function place(dt) {
     const { position, heading, pitch, bank } = flight
+    const v = C.Cartesian3
     ellipsoid.cartographicToCartesian(position, origin)
-    C.Transforms.eastNorthUpToFixedFrame(origin, ellipsoid, frame)
-    // Cesium's model X is forward; ENU heading is measured clockwise from east here.
+    // In Cesium local model X points forward. Positive roll lowers the right wing.
     attitude.heading = heading - C.Math.PI_OVER_TWO
     attitude.pitch = pitch
     attitude.roll = bank
     C.Transforms.headingPitchRollToFixedFrame(origin, attitude, ellipsoid, undefined, model.modelMatrix)
+    C.Matrix4.multiplyByPointAsVector(model.modelMatrix, v.UNIT_X, forward)
+    C.Matrix4.multiplyByPointAsVector(model.modelMatrix, v.UNIT_Z, bodyUp)
+    ellipsoid.geodeticSurfaceNormal(origin, horizonUp)
 
-    local.x = -Math.sin(heading) * 84
-    local.y = -Math.cos(heading) * 84
-    local.z = 32
-    C.Matrix4.multiplyByPoint(frame, local, destination)
-    const cameraGround = globe.getHeight(ellipsoid.cartesianToCartographic(destination, sample))
-    if (cameraGround !== undefined && sample.height < cameraGround + 22) {
-      sample.height = cameraGround + 22
+    // Smooth the offset, not the target. The ship stays centered even at full
+    // speed, while the camera eases around its pitch, heading and bank.
+    const alpha = dt === undefined ? 1 : -Math.expm1(-6 * dt)
+    v.multiplyByScalar(forward, -93, desiredOffset)
+    v.multiplyByScalar(horizonUp, 37 - v.dot(desiredOffset, horizonUp) * .35, up)
+    v.add(desiredOffset, up, desiredOffset)
+    v.multiplyByScalar(bodyUp, 10, up)
+    v.add(desiredOffset, up, desiredOffset)
+    v.lerp(offset, desiredOffset, alpha, offset)
+    v.add(origin, offset, destination)
+    ellipsoid.cartesianToCartographic(destination, sample)
+    const ground = globe.getHeight(sample)
+    const safetyLift = Math.max(0, (Number.isFinite(ground) ? ground : flight.ground) + 14 - sample.height)
+    // Lower slowly when the underlying tile changes or the camera crosses a
+    // ridge; only the safety clamp can move it upward faster.
+    flight.cameraLift = Math.max(flight.cameraLift - 30 * (dt ?? 0), safetyLift)
+    if (flight.cameraLift > 0) {
+      sample.height += flight.cameraLift
       ellipsoid.cartographicToCartesian(sample, destination)
     }
-    C.Cartesian3.subtract(origin, destination, direction)
-    ellipsoid.geodeticSurfaceNormal(origin, up)
-    C.Cartesian3.multiplyByScalar(up, 6, right)
-    C.Cartesian3.add(direction, right, direction)
-    C.Cartesian3.normalize(direction, direction)
-    C.Cartesian3.normalize(C.Cartesian3.cross(direction, up, right), right)
-    C.Cartesian3.normalize(C.Cartesian3.cross(right, direction, forward), up)
+    v.normalize(v.subtract(origin, destination, direction), direction)
+    v.lerp(horizonUp, bodyUp, .34, up)
+    v.normalize(v.cross(direction, up, right), right)
+    v.normalize(v.cross(right, direction, up), up)
     camera.setView({ destination, orientation: { direction, up } })
     scene.requestRender()
   }
 
-  function lead(position, heading, distance) {
+  function lead(position, heading, distance, result) {
     const step = distance / ellipsoid.maximumRadius
     const sinLat = Math.sin(position.latitude), cosLat = Math.cos(position.latitude)
     const sinStep = Math.sin(step), cosStep = Math.cos(step)
@@ -81,46 +125,51 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
     const lon = C.Math.negativePiToPi(position.longitude + Math.atan2(
       Math.sin(heading) * sinStep * cosLat, cosStep - sinLat * Math.sin(lat),
     ))
-    return C.Cartographic.fromRadians(lon, lat, position.height)
+    return C.Cartographic.fromRadians(lon, lat, position.height, result)
+  }
+  function probe(distance, heading) {
+    const position = flight.position
+    return globe.getHeight(distance ? lead(position, heading, distance, probePoint) : position)
   }
 
   scene.preUpdate.addEventListener(() => {
-    if (!flight || flight.paused) return
+    if (!active()) return
     const now = performance.now()
-    const dt = Math.min(.09, (now - flight.last) / 1000)
+    const dt = clamp((now - flight.last) / 1000, 0, .09)
     flight.last = now
-    const turn = Number(pressed('right')) - Number(pressed('left'))
-    const climb = Number(pressed('up')) - Number(pressed('down'))
-    const thrust = Number(pressed('fast')) - Number(pressed('slow'))
-    flight.heading = C.Math.zeroToTwoPi(flight.heading + turn * rad(53) * dt)
-    flight.pitch += (climb * rad(27) - flight.pitch) * Math.min(1, 4 * dt)
-    flight.bank += (turn * rad(25) - flight.bank) * Math.min(1, 4 * dt)
-    flight.speed = clamp(flight.speed + thrust * 66 * dt, 38, 280)
-    const next = lead(flight.position, flight.heading, flight.speed * Math.cos(flight.pitch) * dt)
-    const ground = globe.getHeight(next)
-    if (ground !== undefined) {
-      flight.ground = ground
-      const desired = flight.position.height + Math.sin(flight.pitch) * flight.speed * dt
-      const floor = Math.max(ground + clearanceMin, flight.floor - 35 * dt)
-      next.height = clamp(desired, floor, ground + 12000)
-      flight.floor = floor
-      flight.position = next
+    if (!dt) return
+    const input = {
+      pitch: Number(held.has('up')) - Number(held.has('down')),
+      steer: Number(held.has('right')) - Number(held.has('left')),
+      throttle: Number(held.has('fast')) - Number(held.has('slow')),
+      brake: held.has('brake'),
     }
-    place()
+    const steps = Math.ceil(dt / .03)
+    for (let i = 0; i < steps; i++) {
+      const distance = stepFlight(flight, input, dt / steps, probe)
+      if (distance) lead(flight.position, flight.heading, distance, flight.position)
+      flight.position.height = flight.height
+    }
+    place(dt)
+    announce()
     if (now - flight.hudTime > 120) {
       flight.hudTime = now
-      hud(flight.ground)
+      hud()
     }
   })
 
   function stop() {
     const wasActive = Boolean(flight || loading)
     loading = null
-    keys.clear()
-    if (flight) controls.enableInputs = previousInputs
+    clearInputs()
+    if (flight) {
+      controls.enableInputs = previousInputs
+      controls.enableCollisionDetection = previousCollision
+    }
     flight = null
     if (model) model.show = false
     panel.hidden = true
+    delete panel.dataset.flightPhase
     start.hidden = false
     start.disabled = false
     if (wasActive) scene.requestRender()
@@ -131,9 +180,9 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
     if (!flight) return
     flight.paused = !flight.paused
     flight.last = performance.now()
-    keys.clear()
+    clearInputs()
     pause.textContent = flight.paused ? 'Reanudar vuelo' : 'Pausar vuelo'
-    status.textContent = flight.paused ? 'Vuelo en pausa' : 'Vuelo libre · cohete'
+    announce()
     scene.requestRender()
   }
 
@@ -141,10 +190,10 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
     if (flight || loading) return
     stopFlyover()
     const center = new C.Cartesian2(scene.canvas.clientWidth / 2, scene.canvas.clientHeight / 2)
-    const hit = globe.pick(camera.getPickRay(center), scene)
+    const ray = camera.getPickRay(center)
+    const hit = ray && globe.pick(ray, scene)
     const position = hit ? ellipsoid.cartesianToCartographic(hit) : C.Cartographic.clone(camera.positionCartographic)
-    const ground = globe.getHeight(position)
-    if (!Number.isFinite(ground)) {
+    if (!Number.isFinite(globe.getHeight(position))) {
       status.textContent = 'Espera a que cargue el terreno o elige un destino.'
       return
     }
@@ -165,19 +214,29 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
       return
     }
     if (loading !== ticket) return
+    const ground = globe.getHeight(position)
+    if (!Number.isFinite(ground)) {
+      stop()
+      status.textContent = 'Espera a que cargue el terreno o elige un destino.'
+      return
+    }
     loading = null
     previousInputs = controls.enableInputs
+    previousCollision = controls.enableCollisionDetection
     controls.enableInputs = false
+    // The chase camera uses its own ground guard; don't let the map controller
+    // pull it out of the chase pose while the pilot is active.
+    controls.enableCollisionDetection = false
     const gap = camera.positionCartographic.height - ground
-    position.height = ground + (gap >= 400 && gap <= 2800 ? gap : 1550)
-    flight = { position, ground, floor: ground + clearanceMin, heading: camera.heading, pitch: 0,
-      bank: 0, speed: 112, last: performance.now(), hudTime: 0, paused: false }
+    position.height = ground + (gap >= 220 && gap <= 900 ? gap : 460)
+    flight = { ...newFlight(position.height, ground, camera.heading), position,
+      last: performance.now(), hudTime: 0, paused: false, cameraLift: 0 }
     model.show = true
     start.hidden = true
     panel.hidden = false
     pause.textContent = 'Pausar vuelo'
-    status.textContent = 'Vuelo libre · cohete'
-    hud(ground)
+    announce()
+    hud()
     place()
     exit.focus({ preventScroll: true })
   })
@@ -189,9 +248,11 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
   }
   pause.addEventListener('click', togglePause)
   exit.addEventListener('click', finish)
-  window.addEventListener('blur', () => keys.clear())
+  window.addEventListener('blur', clearInputs)
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && flight && !flight.paused) togglePause()
+    if (!document.hidden) return
+    if (active()) togglePause()
+    else clearInputs()
   })
   window.addEventListener('keydown', event => {
     if (!flight && !loading) return
@@ -199,9 +260,46 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
     if (event.code === 'KeyP' && !event.repeat) { event.preventDefault(); togglePause(); return }
     if (!CONTROL.has(event.code) || event.altKey || event.ctrlKey || event.metaKey) return
     event.preventDefault()
-    if (flight && !flight.paused) keys.add(event.code)
+    if (active() && !keys.has(event.code)) {
+      keys.add(event.code)
+      refreshInputs()
+    }
   })
-  window.addEventListener('keyup', event => keys.delete(event.code))
+  window.addEventListener('keyup', event => {
+    if (keys.delete(event.code)) refreshInputs()
+  })
+  for (const button of buttons) {
+    button.addEventListener('pointerdown', event => {
+      if (!active() || event.button !== 0) return
+      event.preventDefault()
+      pointers.set(event.pointerId, button)
+      button.setPointerCapture(event.pointerId)
+      refreshInputs()
+    })
+    const release = event => {
+      if (pointers.get(event.pointerId) === button) {
+        pointers.delete(event.pointerId)
+        refreshInputs()
+      }
+    }
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) button.addEventListener(type, release)
+    button.addEventListener('keydown', event => {
+      if (event.code !== 'Space' && event.code !== 'Enter') return
+      event.preventDefault()
+      if (active() && !event.repeat) {
+        buttonKeys.set(event.code, button)
+        refreshInputs()
+      }
+    })
+    button.addEventListener('keyup', event => {
+      if (event.code === 'Space' || event.code === 'Enter') event.preventDefault()
+      if (buttonKeys.delete(event.code)) refreshInputs()
+    })
+    button.addEventListener('blur', () => {
+      for (const [code, target] of buttonKeys) if (target === button) buttonKeys.delete(code)
+      refreshInputs()
+    })
+  }
   start.disabled = false
   return stop
 }

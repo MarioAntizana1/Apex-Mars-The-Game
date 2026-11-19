@@ -31,5 +31,5 @@ export function marinerisViews(C, viewer, trial, addImagery, showView) {
     }
   }
   panel.hidden = false
-  return { initialView: views.panorama, approachLayer: layers[1], fineTerrain: () => layers[1].show }
+  return { initialView: views.panorama, firstLayer: layers[0], fineTerrain: () => layers[1].show }
 }

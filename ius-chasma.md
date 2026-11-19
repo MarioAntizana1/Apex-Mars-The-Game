@@ -1,6 +1,6 @@
 # Ius Chasma · prueba de aproximación en Valles Marineris
 
-La panorámica usa las capas base Viking/MOLA y un nivel regional. En vuelo bajo, la textura HiRISE se limita a unas muestras de **10 m/píxel**. Solo con **Aproximación** seleccionada y cerca del sitio se habilita el recorte de unos **520 × 520 m**: ortofoto en malla de **25 cm/píxel** y separación horizontal de la malla 3D de **≈1,3 m**. Son niveles de una prueba de cámara, no un procedimiento de aterrizaje ni medidas de exactitud. El resto de Valles Marineris conserva el detalle disponible de la base.
+La panorámica usa las capas base Viking/MOLA y un nivel regional. En vuelo bajo, la textura HiRISE se limita a unas muestras de **10 m/píxel**. Solo con **Aproximación** seleccionada y cerca del sitio se habilita el recorte de unos **520 × 520 m**: ortofoto en malla de **25 cm/píxel** y separación horizontal de la malla 3D de **≈1,3 m**. Son niveles de una prueba de cámara, no un procedimiento de aterrizaje ni medidas de exactitud. El visor aclara y colorea las imágenes monocromáticas para jugar; no reconstruye color real. Con CTX directo activado, la panorámica usa ese mosaico sobre la base y deja HiRISE por encima al acercarse.
 
 | Capa | Fuente y procedencia | Derivado web |
 |---|---|---|
