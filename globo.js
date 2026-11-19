@@ -1,7 +1,7 @@
 import { preloadBase } from './base-global.js?v=olimpo'
 import { marinerisViews } from './marineris.js?v=color'
 import { ctxDirecto } from './ctx-directo.js?v=color'
-import { crearVuelo } from './vuelo.js?v=jet'
+import { crearVuelo } from './vuelo.js?v=visibilidad'
 import { atmosferaMarciana, stylishTiles } from './imagen-marciana.js'
 
 const C = window.Cesium

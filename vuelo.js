@@ -1,4 +1,4 @@
-import { aboveGround, flightPhase, newFlight, stepFlight } from './flight-dynamics.js'
+import { aboveGround, flightPhase, newFlight, stepFlight } from './flight-dynamics.js?v=crucero'
 
 const CONTROL = new Map([
   ['KeyW', 'up'], ['ArrowUp', 'up'], ['KeyS', 'down'], ['ArrowDown', 'down'],
@@ -31,18 +31,15 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
   const buttonKeys = new Map()
   const origin = new C.Cartesian3()
   const destination = new C.Cartesian3()
-  const direction = new C.Cartesian3()
   const forward = new C.Cartesian3()
-  const horizonUp = new C.Cartesian3()
   const bodyUp = new C.Cartesian3()
-  const up = new C.Cartesian3()
-  const right = new C.Cartesian3()
   const offset = new C.Cartesian3()
-  const desiredOffset = new C.Cartesian3()
+  const frame = new C.Matrix4()
+  const speedFormat = new Intl.NumberFormat('es', { maximumFractionDigits: 0 })
   const attitude = new C.HeadingPitchRoll()
   const sample = new C.Cartographic()
   const probePoint = new C.Cartographic()
-  let model, loading, flight, previousInputs, previousCollision
+  let flight, previousInputs, previousCollision
 
   const clamp = C.Math.clamp
   const deg = C.Math.toDegrees
@@ -70,7 +67,7 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
     if (status.textContent !== message) status.textContent = message
   }
   function hud() {
-    speedLabel.textContent = `${Math.round(flight.speed * 3.6)} km/h`
+    speedLabel.textContent = `${speedFormat.format(flight.speed * 3.6)} km/h`
     headingLabel.textContent = `${Math.round(deg(flight.heading)) % 360}°`
     heightLabel.textContent = flight.waiting ? 'Terreno sin confirmar' : `≈ ${Math.round(aboveGround(flight))} m sobre el terreno`
     positionLabel.textContent = `${deg(flight.position.latitude).toFixed(5)}°, ${deg(flight.position.longitude).toFixed(5)}°`
@@ -80,28 +77,20 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
     const { position, heading, pitch, bank } = flight
     const v = C.Cartesian3
     ellipsoid.cartographicToCartesian(position, origin)
-    // In Cesium local model X points forward. Positive roll lowers the right wing.
+    // Keep the camera onboard while giving the pilot a clear view ahead.
     attitude.heading = heading - C.Math.PI_OVER_TWO
     attitude.pitch = pitch
     attitude.roll = bank
-    C.Transforms.headingPitchRollToFixedFrame(origin, attitude, ellipsoid, undefined, model.modelMatrix)
-    C.Matrix4.multiplyByPointAsVector(model.modelMatrix, v.UNIT_X, forward)
-    C.Matrix4.multiplyByPointAsVector(model.modelMatrix, v.UNIT_Z, bodyUp)
-    ellipsoid.geodeticSurfaceNormal(origin, horizonUp)
-
-    // Smooth the offset, not the target. The ship stays centered even at full
-    // speed, while the camera eases around its pitch, heading and bank.
-    const alpha = dt === undefined ? 1 : -Math.expm1(-6 * dt)
-    v.multiplyByScalar(forward, -93, desiredOffset)
-    v.multiplyByScalar(horizonUp, 37 - v.dot(desiredOffset, horizonUp) * .35, up)
-    v.add(desiredOffset, up, desiredOffset)
-    v.multiplyByScalar(bodyUp, 10, up)
-    v.add(desiredOffset, up, desiredOffset)
-    v.lerp(offset, desiredOffset, alpha, offset)
+    C.Transforms.headingPitchRollToFixedFrame(origin, attitude, ellipsoid, undefined, frame)
+    C.Matrix4.multiplyByPointAsVector(frame, v.UNIT_X, forward)
+    C.Matrix4.multiplyByPointAsVector(frame, v.UNIT_Z, bodyUp)
+    v.multiplyByScalar(forward, 6, offset)
     v.add(origin, offset, destination)
+    v.multiplyByScalar(bodyUp, 2.5, offset)
+    v.add(destination, offset, destination)
     ellipsoid.cartesianToCartographic(destination, sample)
     const ground = globe.getHeight(sample)
-    const safetyLift = Math.max(0, (Number.isFinite(ground) ? ground : flight.ground) + 14 - sample.height)
+    const safetyLift = Math.max(0, (Number.isFinite(ground) ? ground : flight.rawGround) + 2 - sample.height)
     // Lower slowly when the underlying tile changes or the camera crosses a
     // ridge; only the safety clamp can move it upward faster.
     flight.cameraLift = Math.max(flight.cameraLift - 30 * (dt ?? 0), safetyLift)
@@ -109,11 +98,12 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
       sample.height += flight.cameraLift
       ellipsoid.cartographicToCartesian(sample, destination)
     }
-    v.normalize(v.subtract(origin, destination, direction), direction)
-    v.lerp(horizonUp, bodyUp, .34, up)
-    v.normalize(v.cross(direction, up, right), right)
-    v.normalize(v.cross(right, direction, up), up)
-    camera.setView({ destination, orientation: { direction, up } })
+    const rad = C.Math.toRadians
+    camera.setView({ destination, orientation: {
+      heading,
+      pitch: clamp(pitch * .55 - rad(8), rad(-30), rad(12)),
+      roll: bank * .6,
+    } })
     scene.requestRender()
   }
 
@@ -144,7 +134,7 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
       throttle: Number(held.has('fast')) - Number(held.has('slow')),
       brake: held.has('brake'),
     }
-    const steps = Math.ceil(dt / .03)
+    const steps = Math.max(Math.ceil(dt / .03), Math.ceil((flight.speed + 24) * dt / 30))
     for (let i = 0; i < steps; i++) {
       const distance = stepFlight(flight, input, dt / steps, probe)
       if (distance) lead(flight.position, flight.heading, distance, flight.position)
@@ -159,15 +149,13 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
   })
 
   function stop() {
-    const wasActive = Boolean(flight || loading)
-    loading = null
+    const wasActive = Boolean(flight)
     clearInputs()
     if (flight) {
       controls.enableInputs = previousInputs
       controls.enableCollisionDetection = previousCollision
     }
     flight = null
-    if (model) model.show = false
     panel.hidden = true
     delete panel.dataset.flightPhase
     start.hidden = false
@@ -186,52 +174,27 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
     scene.requestRender()
   }
 
-  start.addEventListener('click', async () => {
-    if (flight || loading) return
+  start.addEventListener('click', () => {
+    if (flight) return
     stopFlyover()
     const center = new C.Cartesian2(scene.canvas.clientWidth / 2, scene.canvas.clientHeight / 2)
     const ray = camera.getPickRay(center)
     const hit = ray && globe.pick(ray, scene)
     const position = hit ? ellipsoid.cartesianToCartographic(hit) : C.Cartographic.clone(camera.positionCartographic)
-    if (!Number.isFinite(globe.getHeight(position))) {
-      status.textContent = 'Espera a que cargue el terreno o elige un destino.'
-      return
-    }
-    const ticket = loading = Symbol()
-    start.disabled = true
-    status.textContent = 'Preparando el cohete…'
-    try {
-      if (!model) {
-        const rocket = await C.Model.fromGltfAsync({ url: './modelos/cohete.glb', show: false, cull: false })
-        if (loading !== ticket) { rocket.destroy(); return }
-        model = scene.primitives.add(rocket)
-      }
-    } catch {
-      if (loading === ticket) {
-        stop()
-        status.textContent = 'No se pudo cargar el cohete. Intenta de nuevo.'
-      }
-      return
-    }
-    if (loading !== ticket) return
     const ground = globe.getHeight(position)
     if (!Number.isFinite(ground)) {
-      stop()
       status.textContent = 'Espera a que cargue el terreno o elige un destino.'
       return
     }
-    loading = null
     previousInputs = controls.enableInputs
     previousCollision = controls.enableCollisionDetection
     controls.enableInputs = false
-    // The chase camera uses its own ground guard; don't let the map controller
-    // pull it out of the chase pose while the pilot is active.
+    // The onboard camera uses its own ground guard while piloting.
     controls.enableCollisionDetection = false
     const gap = camera.positionCartographic.height - ground
     position.height = ground + (gap >= 220 && gap <= 900 ? gap : 460)
     flight = { ...newFlight(position.height, ground, camera.heading), position,
       last: performance.now(), hudTime: 0, paused: false, cameraLift: 0 }
-    model.show = true
     start.hidden = true
     panel.hidden = false
     pause.textContent = 'Pausar vuelo'
@@ -255,7 +218,7 @@ export function crearVuelo(C, viewer, status, stopFlyover) {
     else clearInputs()
   })
   window.addEventListener('keydown', event => {
-    if (!flight && !loading) return
+    if (!flight) return
     if (event.code === 'Escape') { event.preventDefault(); finish(); return }
     if (event.code === 'KeyP' && !event.repeat) { event.preventDefault(); togglePause(); return }
     if (!CONTROL.has(event.code) || event.altKey || event.ctrlKey || event.metaKey) return

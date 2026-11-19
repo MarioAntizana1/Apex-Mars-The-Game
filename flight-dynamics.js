@@ -6,6 +6,12 @@ const clamp = (x, low, high) => Math.max(low, Math.min(high, x))
 const mix = (a, b, rate, dt) => a + (b - a) * -Math.expm1(-rate * dt)
 const turn = (heading, delta) => (heading + delta + TAU) % TAU
 const takeoffSpeed = 58
+const lowSpeedLimit = 280
+const cruiseSpeedLimit = 12000 / 3.6
+
+function speedLimit(agl) {
+  return lowSpeedLimit + (cruiseSpeedLimit - lowSpeedLimit) * clamp((agl - 1000) / 5000, 0, 1)
+}
 
 export function belly(pitch = 0, bank = 0) {
   // The cohete.glb bounds (14.08 m nose/tail, 6.4 m span on the wider
@@ -43,19 +49,31 @@ export function stepFlight(state, input, dt, probe) {
   if (grounded) {
     state.speed = clamp(state.speed + (brake ? -85 : throttle > 0 ? 32 : throttle < 0 ? -30 : -14) * dt, 0, 100)
   } else {
-    const acceleration = recovery ? (state.speed > (brake ? 55 : 95) ? -65 : 0) : brake ? -98 : throttle > 0 ? 52 : throttle < 0 ? -42 : 0
-    state.speed = clamp(state.speed + acceleration * dt, 31, 280)
+    const limit = speedLimit(agl)
+    const boost = clamp((agl - 1000) / 5000, 0, 1)
+    const brakeRate = 98 + .14 * Math.max(0, state.speed - lowSpeedLimit)
+    if (brake || recovery) {
+      const target = recovery && !brake ? 95 : 31
+      if (state.speed > target) state.speed = Math.max(target, state.speed - brakeRate * dt)
+    } else if (state.speed > limit) {
+      // Bleed speed on descent without snapping the ship to the new limit.
+      state.speed = Math.max(limit, state.speed - (brakeRate + 150) * dt)
+    } else {
+      const acceleration = throttle > 0 ? 52 + 208 * boost : throttle < 0 ? -42 - .06 * Math.max(0, state.speed - lowSpeedLimit) : 0
+      state.speed = clamp(state.speed + acceleration * dt, 31, limit)
+    }
   }
   const rotate = grounded && !brake && pitch > 0 && state.speed >= takeoffSpeed
   const bankTarget = grounded || recovery ? 0 : steer * rad(48 - 33 * flare)
+  const cruise = clamp((state.speed - lowSpeedLimit) / 1500, 0, 1)
   const pitchTarget = grounded ? (rotate ? rad(14) : 0) : recovery ? rad(brake ? 31 : 23) :
-    pitch >= 0 ? pitch * rad(35) : pitch * rad(41 - 33 * flare)
+    pitch >= 0 ? pitch * rad(35 - 13 * cruise) : pitch * rad(41 - 33 * Math.max(flare, cruise))
   state.bank = mix(state.bank, bankTarget, 4.6, dt)
   state.pitch = mix(state.pitch, pitchTarget, 4.2, dt)
   // Airborne yaw follows the bank, not the key. On the ground, steering can
   // align the nose even after the aircraft stops rolling.
   const yaw = grounded ? steer * (state.speed > 40 ? .56 : .88) :
-    clamp(Math.tan(state.bank) * 39 / (state.speed + 42), -.68, .68)
+    clamp(Math.tan(state.bank) * 39 / (Math.min(state.speed, 820) + 42), -.68, .68)
   state.heading = turn(state.heading, yaw * dt)
 
   const distance = state.speed * Math.cos(state.pitch) * dt
