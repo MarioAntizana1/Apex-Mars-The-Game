@@ -5,6 +5,13 @@ sigue con una expedición a pie y en rover por el terreno real de Ares Vallis y
 termina en la Estación Científica Sagan, reconstruida en el sitio de aterrizaje de
 Mars Pathfinder (1997).
 
+## ▶ Jugar ahora
+
+**[https://marioantizana1.github.io/Apex-Mars-The-Game/](https://marioantizana1.github.io/Apex-Mars-The-Game/)**
+
+No hay que instalar nada: abre el enlace en el navegador y pulsa **Iniciar partida**.
+Para jugar desde el código, sigue las instrucciones de [Jugar en local](#jugar-en-local).
+
 ![El mundo real visto desde el juego](documentacion/imagenes/rover-sagan.png)
 ![Suelo de cerca: regolito y grava sobre la ortofoto real](documentacion/imagenes/suelo-detalle.png)
 
