@@ -9,7 +9,9 @@
   <script>window.CESIUM_BASE_URL='./node_modules/cesium/Build/Cesium/'</script>
   <script src="./node_modules/cesium/Build/Cesium/Cesium.js" defer></script>
   <script src="./interfaz.js?v=2" type="module"></script>
-  <script src="./globo.js?v=cabina" type="module"></script>
+  <link rel="stylesheet" href="./historia.css?v=eva3d">
+  <link rel="stylesheet" href="./menu.css">
+  <script src="./globo.js?v=eva3d" type="module"></script>
 </head>
 <body>
   <main id="mapa" aria-label="Globo navegable de Marte"></main>
@@ -20,6 +22,10 @@
         <span class="indicador-panel">Controles</span>
       </summary>
       <div id="contenido-panel">
+        <nav class="historia-menu" aria-label="Campaña">
+          <button id="abrir-historia" type="button" disabled>Modo historia · La caída</button>
+          <button id="abrir-pathfinder" type="button" disabled>Visitar Pathfinder y Sojourner</button>
+        </nav>
         <nav id="vistas" aria-label="Vistas de prueba">
           <button id="global" type="button">Marte global</button>
           <button id="jezero" type="button">Acercar a Jezero</button>
@@ -56,6 +62,46 @@
       </div>
     </details>
   </aside>
+  <section id="historia" hidden aria-labelledby="historia-titulo">
+    <div id="historia-escena" hidden></div>
+    <div id="historia-negro" aria-hidden="true" hidden></div>
+    <header class="historia-barra">
+      <h2 id="historia-titulo">APEX / MARS · LA CAÍDA</h2>
+      <button id="historia-sonido" type="button" hidden aria-pressed="true">Audio</button>
+      <button id="historia-saltar" type="button">Saltar prólogo</button>
+      <button id="historia-salir" type="button">Volver al globo</button>
+    </header>
+    <div id="historia-estado" role="status"></div>
+    <section id="eva" aria-label="Exploración en primera persona" hidden>
+      <aside class="eva-mision"><span>TRAJE · OBC / 01</span><p id="eva-objetivo"></p><small id="eva-equipo"></small></aside>
+      <i class="eva-punto" aria-hidden="true"></i>
+      <button id="eva-uso" type="button" hidden></button>
+      <p id="eva-aviso" role="status"></p>
+      <nav class="eva-herramientas" aria-label="Herramientas de exploración">
+        <button id="eva-mapa" type="button" hidden>Tablet · M</button>
+        <button id="eva-vehiculo" type="button" hidden>Desplegar vehículo · V</button>
+        <button class="eva-touch" id="eva-correr" type="button" aria-pressed="false">Correr</button>
+        <button class="eva-touch" id="eva-salto" type="button">Saltar</button>
+      </nav>
+      <output id="eva-ruta" hidden></output>
+      <dialog id="tablet" aria-labelledby="tablet-titulo">
+        <p class="tablet-id">APEX / CARTOGRAFÍA DE CAMPO</p><h2 id="tablet-titulo">Mapa de Ares Vallis</h2>
+        <canvas id="tablet-carta" width="640" height="320" aria-label="Mapa orientado al norte: nave, explorador y estación Sagan"></canvas>
+        <p class="tablet-leyenda"><span>▲ Tu posición</span><span>□ Nave</span><span>◆ Sagan</span></p>
+        <p id="tablet-lectura"></p><small>Estación científica Carl Sagan · Mars Pathfinder y Sojourner</small>
+        <footer><button id="tablet-ruta" type="button">Seguir rumbo a Sagan</button><button id="tablet-cerrar" type="button">Cerrar mapa</button></footer>
+      </dialog>
+      <p class="eva-ayuda"><b>WASD</b> mover · <b>Arrastrar</b> mirar · <b>E</b> usar · <b>Shift</b> correr · <b>Espacio</b> saltar · <b>V</b> vehículo · <b>M</b> mapa</p>
+      <p class="eva-ayuda-tactil">Mueve el mando para caminar. Arrastra el paisaje para mirar.</p>
+      <div id="eva-pad" aria-label="Control táctil de marcha"><span></span></div>
+    </section>
+    <nav id="historia-visita" aria-label="Inspeccionar la misión" hidden>
+      <button type="button" data-sitio="sojourner" aria-pressed="false">Sojourner</button>
+      <button type="button" data-sitio="pathfinder" aria-pressed="false">Pathfinder</button>
+      <button type="button" id="historia-girar">Girar vista</button>
+      <a href="./historia-modelos.md" target="_blank" rel="noopener">Fuente de los modelos</a>
+    </nav>
+  </section>
   <section id="vuelo-panel" hidden aria-labelledby="titulo-vuelo">
     <svg class="vuelo-reticula" viewBox="0 0 160 64" aria-hidden="true" focusable="false">
       <path d="M2 32h38l8 8h13m97-8h-38l-8 8H99M80 4v13m0 30v13M69 32l11-8 11 8-11 8Z" />

@@ -1,0 +1,39 @@
+.historia-menu { display:grid; gap:.35rem; margin:0 0 .8rem }
+#abrir-historia { background:#824024; color:#fff3de; text-align:left; font-weight:700 }
+#historia[hidden],#historia [hidden] { display:none!important }
+#historia { position:fixed; inset:0; z-index:30; overflow:hidden; pointer-events:none; color:#f6ece0; font:500 14px/1.45 system-ui,sans-serif; --edge:max(1.2rem,env(safe-area-inset-left)); --low:max(1rem,env(safe-area-inset-bottom)) }
+#historia button,#historia a { pointer-events:auto }
+#historia button { min-height:36px; border:1px solid #ffffff44; border-radius:4px; padding:.38rem .68rem; background:#141719cc; color:inherit; font:inherit; cursor:pointer }
+#historia button:focus-visible,#historia a:focus-visible { outline:2px solid #ffd598; outline-offset:3px }
+#historia button:hover { background:#46372e }
+#historia-escena,#historia-negro { position:absolute; inset:0; background:#090908 }
+#historia-escena canvas { display:block; width:100%; height:100%; pointer-events:auto; touch-action:none; outline:none }
+#historia-negro { background:black; pointer-events:none }
+.historia-barra { position:absolute; inset:max(.8rem,env(safe-area-inset-top)) var(--edge) auto; display:flex; align-items:center; gap:.45rem }
+#historia-titulo { margin:0 auto 0 0; font:600 .76rem/1.2 system-ui; letter-spacing:.18em; text-shadow:0 1px 4px black }
+#historia-estado,#historia-visita { position:absolute; left:50%; translate:-50% 0; bottom:var(--low); width:max-content; max-width:calc(100% - 2rem); box-sizing:border-box; padding:.5rem .9rem; text-align:center; border-radius:3px; background:#111415c9 }
+#historia-estado:empty { display:none }
+#historia-visita { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:.5rem }
+#historia-visita a { color:#ffd099 }
+#historia-visita [aria-pressed=true] { border-color:#ffbb83 }
+#historia[data-shot=visita] #historia-estado { bottom:auto; top:4rem }
+#historia[data-shot=loading] { background:#121211 }
+#historia[data-shot=cine] .historia-barra { padding-bottom:.45rem }
+#historia[data-shot=cine]::before,#historia[data-shot=cine]::after { content:''; position:absolute; left:0; right:0; height:clamp(22px,6vh,74px); background:#090a0b; pointer-events:none }
+#historia[data-shot=cine]::after { bottom:0; z-index:0 }
+#historia[data-shot=cine]::before { top:0; z-index:1 }
+#historia[data-shot=cine] :is(.historia-barra,#historia-estado) { z-index:2 }
+#historia[data-shot=cine] #historia-estado { font:500 .85rem/1.25 ui-monospace,monospace; text-shadow:0 1px 4px black; background:transparent }
+.eva-mision { position:absolute; top:max(4.2rem,calc(env(safe-area-inset-top) + 3.2rem)); left:var(--edge); max-width:min(350px,85vw); padding:.45rem .7rem; border-left:2px solid #96d3bd; background:linear-gradient(90deg,#081111bf,transparent); text-shadow:0 1px 5px #060606 }
+.eva-mision span,.eva-mision small { display:block; color:#b9ddcd; font:500 .69rem/1.35 ui-monospace,monospace; letter-spacing:.08em }
+.eva-mision p { margin:.15rem 0; font-weight:620 }
+.eva-punto { position:absolute; left:50%; top:50%; width:4px; height:4px; translate:-50% -50%; border-radius:50%; background:#ffedcae6; box-shadow:0 0 0 1px #12171793 }
+#eva-uso { position:absolute; left:50%; top:calc(50% + 1.45rem); translate:-50% 0; max-width:80vw; border-color:#b8d4c8; background:#0d201fe0 }
+#eva-aviso { position:absolute; left:50%; bottom:calc(var(--low) + 1.8rem); translate:-50% 0; box-sizing:border-box; width:max-content; max-width:min(580px,84vw); padding:.55rem .82rem; text-align:center; background:#101516d9; border-radius:3px; text-wrap:pretty }
+#eva-aviso:empty { display:none }
+.eva-ayuda { position:absolute; left:var(--edge); right:var(--edge); bottom:var(--low); margin:0; text-align:center; color:#f4eee3; text-shadow:0 1px 3px #000,0 1px 6px black; font-size:.76rem }
+.eva-ayuda-tactil { display:none }
+#eva-pad { display:none; position:absolute; left:var(--edge); bottom:var(--low); width:85px; height:85px; border:1px solid #cddbd677; border-radius:50%; background:#17232166; pointer-events:auto; touch-action:none }
+#eva-pad span { position:absolute; left:50%; top:50%; width:33px; height:33px; translate:-50% -50%; border-radius:50%; background:#c4d6cc70; pointer-events:none }
+@media(pointer:coarse),(any-pointer:coarse) { #eva-pad { display:block } .eva-ayuda { display:none } .eva-ayuda-tactil { display:block; position:absolute; left:var(--edge); bottom:calc(var(--low) + 86px); max-width:115px; font-size:.7rem; text-shadow:0 1px 3px #000,0 1px 5px #000 } #eva-aviso { max-width:calc(100vw - 140px); bottom:var(--low); left:auto; right:1rem; translate:0 0 } }
+@media(max-width:550px) { #historia { --edge:.65rem } .historia-barra { gap:.25rem } #historia button { font-size:.8rem } #historia-titulo { max-width:31vw; font-size:.65rem } .eva-mision { max-width:75vw; font-size:.8rem } }

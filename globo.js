@@ -3,6 +3,7 @@ import { marinerisViews } from './marineris.js?v=color'
 import { ctxDirecto } from './ctx-directo.js?v=color'
 import { crearVuelo } from './vuelo.js?v=cabina'
 import { atmosferaMarciana, stylishTiles } from './imagen-marciana.js'
+import { crearHistoria } from './historia.js'
 
 const C = window.Cesium
 const status = document.querySelector('#estado')
@@ -158,6 +159,7 @@ async function start() {
     viewer.camera.cancelFlight()
   }
   const stopPilot = crearVuelo(C, viewer, status, stopFlyover)
+  crearHistoria(C, viewer, () => { stopPilot(); stopFlyover() })
   viewer.scene.postRender.addEventListener(() => {
     if (!flyover) return
     const position = viewer.camera.positionCartographic
