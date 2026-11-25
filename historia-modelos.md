@@ -17,6 +17,20 @@ Los dos GLB son **reconstrucciones visuales originales de Apex Mars**, no modelo
 
 Son archivos glTF 2.0 binarios independientes, sin texturas ni recursos externos. Usan metros, sistema de coordenadas de mano derecha, **+Y vertical** y **+Z hacia delante**. El origen está en el centro de la proyección horizontal de la caja envolvente, al nivel del punto más bajo (`Y = 0`). A escala `1` conservan sus tamaños físicos; para colocarlos en terreno, sitúa el origen sobre la superficie en vez de alinear el centro de la caja.
 
+## En el mundo abierto
+
+Desde la ampliación, los dos modelos se cargan también en la **Estación
+Científica Sagan** del terreno real de Ares Vallis (`historia-sagan.js`), a
+2 km del punto de impacto y en el sitio real de Pathfinder. El lector GLB es
+mínimo (sin `GLTFLoader`): lee el contenedor binario, los accessors POSITION,
+NORMAL e indices y los materiales PBR del glTF 2.0, porque estos modelos no usan
+texturas ni transformaciones de nodo. El aterrizador se coloca a escala 1 y la
+Sojourner a escala 1,6 para que se vea desde la distancia de juego. El sitio se
+completa con un cartel de campaña procedural y no tiene edificios, tal y como se
+pidió. El detalle completo está en
+[documentacion/01-mundo-abierto.md](documentacion/01-mundo-abierto.md) y
+[documentacion/03-movimiento-y-rover.md](documentacion/03-movimiento-y-rover.md).
+
 ## Regenerar y comprobar
 
 Desde la raíz de `apex-mars`, con Python 3 y sin dependencias externas:

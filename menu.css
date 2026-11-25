@@ -4,7 +4,7 @@
   --menu-acento: #ffd59c;
   --menu-borde: #79523d;
   --menu-borde-suave: #79523d66;
-  --menu-fondo: #1d1512e8;
+  --menu-fondo: #1d1512dd;
   --menu-fondo-boton: #33221a;
   position: fixed;
   z-index: 3;
@@ -26,9 +26,10 @@
   font: 400 .875rem/1.35 system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   font-variant-numeric: tabular-nums;
   color-scheme: dark;
-  background:
-    radial-gradient(130% 90% at 0% 100%, #552e1e66, transparent 62%),
-    linear-gradient(158deg, #2b1b14, var(--menu-fondo) 58%);
+  background-color: var(--menu-fondo);
+  background-image:
+    radial-gradient(130% 90% at 0% 100%, #552e1e70, transparent 62%),
+    linear-gradient(158deg, #ffffff0a, transparent 45%);
   border: 1px solid var(--menu-borde);
   border-top-color: #c98c5e;
   border-radius: .85rem;
@@ -83,7 +84,8 @@
   padding: .5rem .65rem;
   border: 1px solid var(--menu-borde);
   border-radius: .55rem;
-  background: linear-gradient(180deg, #3a261d, var(--menu-fondo-boton));
+  background-color: var(--menu-fondo-boton);
+  background-image: linear-gradient(180deg, #3a261d, transparent);
   color: inherit;
   font: inherit;
   text-align: left;
@@ -116,7 +118,7 @@
 @media (hover: hover) {
   #menu button:hover:not(:disabled) {
     border-color: #c08a5f;
-    background: #4a2f23;
+    background-color: #4a2f23;
   }
 
   #menu .menu-lista button:hover:not(:disabled) {
@@ -125,7 +127,7 @@
 
   #menu :is(#menu-volver, .menu-volver):hover:not(:disabled) {
     border-color: var(--menu-acento);
-    background: #4a2f23;
+    background-color: #4a2f23;
   }
 
   #menu-opciones label:hover {
@@ -149,7 +151,8 @@
 
 #menu .menu-lista button[aria-pressed='true'] {
   border-color: var(--menu-acento);
-  background: linear-gradient(100deg, #5d3726, #38231a 78%);
+  background-color: #3d261b;
+  background-image: linear-gradient(100deg, #5d3726, transparent 78%);
   box-shadow: inset 3px 0 0 var(--menu-acento), 0 .25rem .9rem #00000038;
 }
 
@@ -325,3 +328,14 @@
     outline-offset: -2px;
   }
 }
+
+/* El menú de inicio solo vive sobre el globo; se oculta en partida y vuelo. */
+body:has(#historia:not([hidden])) #menu,
+body:has(#vuelo-panel:not([hidden])) #menu { display: none !important; }
+
+/* El panel del globo se retira mientras el menú de inicio ocupa la esquina. */
+body:has(#menu:not([hidden])) #panel { display: none !important; }
+
+#menu .menu-docs { margin: 0; text-align: right; font-size: .72rem; line-height: 1.3 }
+#menu .menu-docs a { color: var(--menu-tenue); text-decoration-color: #79523d }
+#menu .menu-docs a:hover { color: var(--menu-acento) }

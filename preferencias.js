@@ -1,6 +1,6 @@
 // Shared player preferences. Safe in Node and in private windows without storage.
 const CLAVE = 'apex-mars:preferencias'
-const BASE = Object.freeze({ sonido: true, ciencia: true })
+const BASE = Object.freeze({ sonido: true, ciencia: true, rumbo: false })
 
 function almacen() {
   try { return globalThis.localStorage ?? null } catch { return null }
@@ -12,6 +12,7 @@ export function leerPreferencias() {
     return {
       sonido: typeof saved.sonido === 'boolean' ? saved.sonido : BASE.sonido,
       ciencia: typeof saved.ciencia === 'boolean' ? saved.ciencia : BASE.ciencia,
+      rumbo: typeof saved.rumbo === 'boolean' ? saved.rumbo : BASE.rumbo,
     }
   } catch { return { ...BASE } }
 }

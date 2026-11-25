@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "origen": {
+    "lon": 326.7575625336271,
+    "lat": 19.164003701859567,
+    "altura": -3699.5959738728966
+  },
+  "impacto": {
+    "x": 0.0,
+    "z": 0.0
+  },
+  "sagan": {
+    "x": 1200.0,
+    "z": 1600.0,
+    "lon": 326.779,
+    "lat": 19.137,
+    "altura": 8.886713824128037
+  },
+  "detalle": {
+    "x0": -4096.0,
+    "z0": -2048.0,
+    "sector": 1024.0,
+    "paso": 4.0,
+    "columnas": 7,
+    "filas": 16,
+    "muestras": 257
+  },
+  "lejano": {
+    "x0": -24576.0,
+    "z0": -24576.0,
+    "paso": 512.0,
+    "lado": 97,
+    "archivo": "lejano.bin"
+  },
+  "dtm": {
+    "lon_oeste": 326.6968409675336,
+    "lon_este": 326.80891792765027,
+    "lat_norte": 19.182147216922832,
+    "lat_sur": 18.93891056708623,
+    "x_min": -3398.9967864974446,
+    "x_max": 2874.708781149179,
+    "z_min": -1075.0238708822503,
+    "z_max": 13337.023846223083,
+    "metros_por_pixel_x": 0.9537405849265161,
+    "metros_por_pixel_y": 1.0095298204752965,
+    "resolucion_m": 1.0,
+    "tamano": [
+      6579,
+      14277
+    ]
+  },
+  "limite": 24000.0,
+  "fuentes": [
+    "HiRISE DTM DTEEC_002391_1995_001890_1995_A01 (1 m/píxel), NASA/JPL/University of Arizona",
+    "HiRISE ortho PSP_002391_1995_RED_C y PSP_001890_1995_RED_C (1 m/píxel), NASA/JPL/University of Arizona",
+    "MOLA global base v2, NASA/JPL/MOLA Science Team"
+  ],
+  "cubierta_dtm": 0.5399861917766816
+}

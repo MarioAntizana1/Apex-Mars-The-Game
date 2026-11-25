@@ -4,7 +4,7 @@ const objetos = {
   pathfinder: { offset: [0, 0, 0], range: 5.1, eye: 2.6, target: .45, name: 'Mars Pathfinder · estación Sagan' },
 }
 
-export function crearHistoria(C, viewer, detenerOtros) {
+export function crearHistoria(C, viewer, detenerOtros, alCerrar) {
   const $ = id => document.getElementById(id)
   const { scene, camera } = viewer
   const ellipsoid = scene.globe.ellipsoid
@@ -20,7 +20,7 @@ export function crearHistoria(C, viewer, detenerOtros) {
   let selected = 'sojourner', azimuth = .7
 
   function open(mode, origin) {
-    if (active) close()
+    if (active) close(false)
     detenerOtros()
     focusReturn = origin
     cameraState = {
@@ -46,10 +46,11 @@ export function crearHistoria(C, viewer, detenerOtros) {
     title.textContent = mode === 'caida' ? 'APEX / MARS · LA CAÍDA' : 'ARES VALLIS · ESTACIÓN SAGAN'
     status.textContent = 'Cargando Ares Vallis…'
     salir.focus()
+    document.dispatchEvent(new CustomEvent('apex:historia-abierta'))
     return active
   }
 
-  function close() {
+  function close(avisar = true) {
     if (!active) return
     active = null
     cancelAnimationFrame(frame)
@@ -68,6 +69,7 @@ export function crearHistoria(C, viewer, detenerOtros) {
     panel.hidden = true
     focusReturn.focus()
     scene.requestRender()
+    if (avisar) alCerrar?.()
   }
 
   async function localFrame({ lon, lat }) {
@@ -203,7 +205,10 @@ export function crearHistoria(C, viewer, detenerOtros) {
   sites.forEach(btn => { btn.onclick = () => { selected = btn.dataset.sitio; verSitio() } })
   $('historia-girar').onclick = () => { azimuth += Math.PI / 4; verSitio() }
   document.addEventListener('keydown', event => {
-    if (active && event.key === 'Escape') close()
+    if (active && event.key === 'Escape') {
+      if (campaign?.escape?.()) return
+      close()
+    }
   })
   start.disabled = visit.disabled = false
 }

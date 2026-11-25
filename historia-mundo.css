@@ -1,0 +1,56 @@
+/* Herramientas del traje, tablet y menú de pausa (mundo abierto). */
+.eva-herramientas { position:absolute; right:var(--edge); bottom:calc(var(--low) + 2.15rem); display:flex; flex-direction:column; align-items:flex-end; gap:.4rem; z-index:2 }
+.eva-herramientas button { min-height:40px; border-color:#9c7a5b; background:#191512d9; color:#f7e9d8; font-size:.8rem; font-weight:600; backdrop-filter:blur(6px) }
+.eva-herramientas button[aria-pressed=true] { background:#5a3a24; border-color:#ffd59c; color:#fff }
+.eva-touch { display:none }
+@media (pointer:coarse), (any-pointer:coarse) { .eva-touch { display:inline-block } #eva-vehiculo, #eva-mapa { min-height:44px } }
+
+#eva-ruta { position:absolute; left:50%; top:calc(50% + 2.3rem); translate:-50% 0; display:flex; align-items:center; gap:.45rem; box-sizing:border-box; padding:.32rem .62rem; border:1px solid #8a7250; border-radius:2rem; background:#0f1314d9; color:#ffe6bb; font:600 .78rem/1.2 ui-monospace, Consolas, monospace; letter-spacing:.02em; white-space:nowrap }
+#eva-ruta-aguja { display:inline-block; font-size:1rem; line-height:1; color:#ffcf8a; transform-origin:50% 50%; text-shadow:0 0 6px #ff9d4566 }
+
+#tablet { box-sizing:border-box; width:min(94vw, 780px); max-height:min(94dvh, 760px); margin:auto; padding:.9rem 1rem 1rem; border:1px solid #8f6d52; border-radius:.85rem; background:#191310f5; color:#f8ecdd; font:400 .9rem/1.4 system-ui, sans-serif; box-shadow:0 1.5rem 5rem #000b, inset 0 1px 0 #ffffff1a; backdrop-filter:blur(14px) }
+#tablet::backdrop { background:#050403cc; backdrop-filter:blur(8px) }
+#tablet[open] { animation:tablet-abrir .22s ease-out }
+@keyframes tablet-abrir { from { opacity:0; transform:translateY(.6rem) scale(.985) } to { opacity:1; transform:none } }
+#tablet .tablet-id { margin:0; color:#ffcf94; font:600 .68rem/1.2 ui-monospace, monospace; letter-spacing:.16em }
+#tablet h2 { margin:.15rem 0 .55rem; font-size:1.15rem; letter-spacing:-.01em }
+#tablet-carta { display:block; width:100%; height:auto; aspect-ratio:3/2; border:1px solid #6e5642; border-radius:.45rem; background:#241a14; touch-action:none }
+.tablet-zoom { position:absolute; right:1.4rem; top:4.4rem; display:flex; flex-direction:column; gap:.25rem }
+.tablet-zoom button { width:38px; height:38px; min-height:0; padding:0; border-radius:.35rem; background:#241b16e6; border-color:#8d6c50; font-size:1.2rem; line-height:1 }
+.tablet-leyenda { display:flex; flex-wrap:wrap; align-items:center; gap:.35rem 1rem; margin:.55rem 0 .2rem; color:#e5c7a9; font-size:.78rem }
+.tablet-escala { margin-left:auto; font-family:ui-monospace, monospace; color:#ffd9a6 }
+#tablet-lectura { margin:.35rem 0; font:500 .8rem/1.45 ui-monospace, monospace; color:#cfe9e2; white-space:pre-line }
+#tablet small { color:#d9b795 }
+#tablet footer { display:flex; flex-wrap:wrap; gap:.45rem; margin-top:.6rem }
+#tablet footer button { background:#2b1f18; border-color:#8d6c50 }
+#tablet footer button:first-child { border-color:#a9d5c4; color:#d8f4ea }
+
+#pausa { position:fixed; inset:0; z-index:8; display:grid; place-items:center; pointer-events:auto; color:#f8efe4; font:400 .95rem/1.45 system-ui, sans-serif }
+.pausa-fondo { position:absolute; inset:0; background:#06070866; backdrop-filter:blur(12px) saturate(.85); -webkit-backdrop-filter:blur(12px) saturate(.85) }
+.pausa-panel { position:relative; box-sizing:border-box; width:min(27rem, 92vw); max-height:88dvh; overflow:auto; padding:1.1rem 1.15rem 1.2rem; border:1px solid #ffffff2e; border-radius:1.05rem; background:linear-gradient(155deg, #ffffff17, #ffffff05 55%), #1b1612b8; box-shadow:0 2rem 5rem #00000080, inset 0 1px 0 #ffffff2b; backdrop-filter:blur(24px) saturate(1.25); -webkit-backdrop-filter:blur(24px) saturate(1.25) }
+.pausa-marca { margin:0; color:#ffd59c; font:700 .7rem/1.2 ui-monospace, monospace; letter-spacing:.2em }
+#pausa-titulo { margin:.2rem 0 .9rem; font-size:1.35rem; letter-spacing:-.015em }
+.pausa-lista { display:grid; gap:.45rem }
+.pausa-panel button { width:100%; min-height:44px; border:1px solid #ffffff38; border-radius:.55rem; background:#ffffff0d; color:inherit; text-align:left; padding:.55rem .75rem; font:inherit; cursor:pointer; backdrop-filter:blur(4px) }
+.pausa-panel button:hover { background:#ffffff1c; border-color:#ffd59c99 }
+.pausa-panel button:focus-visible { outline:2px solid #ffd59c; outline-offset:2px }
+#pausa-opciones { padding-top:.7rem; border-top:1px solid #ffffff22; margin-top:.8rem; display:grid; gap:.35rem }
+#pausa-opciones label { display:flex; align-items:center; gap:.5rem; min-height:40px; font-size:.9rem }
+#pausa-opciones button { margin-top:.35rem; text-align:center }
+#pausa-creditos { padding-top:.7rem; border-top:1px solid #ffffff22; margin-top:.8rem }
+#pausa-creditos h3 { margin:0 0 .5rem; font-size:1rem }
+#pausa-creditos ul { margin:0 0 .7rem; padding-left:1.1rem; display:grid; gap:.3rem; font-size:.82rem; color:#e7cfb9 }
+#pausa-creditos li b { color:#ffe6c4; font-weight:650 }
+#pausa-creditos .pausa-volver { text-align:center }
+#juego-pausa { border-color:#a9c4bd; color:#d5f0e9 }
+@media (max-width:560px) {
+  #tablet { width:96vw; padding:.7rem }
+  .tablet-zoom { right:.9rem; top:3.7rem }
+  #eva-ruta { top:calc(50% + 1.9rem); font-size:.72rem }
+  .eva-herramientas { bottom:calc(var(--low) + 1.4rem) }
+}
+
+#tablet { pointer-events: auto; overflow-x: hidden; }
+#tablet, #tablet *, #tablet *::before, #tablet *::after { box-sizing: border-box; }
+#tablet canvas { pointer-events: auto; }
+#tablet-carta { border: 1px solid #6e5642; }

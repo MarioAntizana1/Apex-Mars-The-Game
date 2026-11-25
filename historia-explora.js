@@ -1,15 +1,15 @@
 import { crearNave } from './historia-nave.js'
 import { crearPuenteJugable, transitablePuente, Z_INICIO_PUENTE, Z_FIN_CASCO } from './historia-puente.js'
 import { crearEsclusa } from './historia-esclusa.js'
-import { height, crearSuperficie, normal, SAGAN, LIMITE } from './historia-terreno.js'
+import { crearTerreno, MUNDO, SAGAN } from './historia-terreno.js'
 import { crearEstacionSagan } from './historia-sagan.js'
 
 // Everything is local to the wreck. No pointer lock, network requests or renderer ownership.
 export function crearExploracion(T, scene, camera, renderer, ui={}) {
   const world=new T.Group(); world.name='Ares Vallis · punto de impacto'; scene.add(world)
   const old={bg:scene.background,fog:scene.fog,near:camera.near,far:camera.far,fov:camera.fov}
-  scene.background=new T.Color(0xd9a17a);scene.fog=new T.FogExp2(0xca997c,.0048)
-  camera.near=.035;camera.far=1200;camera.fov=71;camera.updateProjectionMatrix()
+  scene.background=new T.Color(0xd9a17a);scene.fog=new T.FogExp2(0xca997c,.00062)
+  camera.near=.06;camera.far=5000;camera.fov=71;camera.updateProjectionMatrix()
   let seed=19760720
   const random=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296)
   const clamp=(x,a,b)=>Math.max(a,Math.min(b,x)), TAU=Math.PI*2
@@ -99,32 +99,16 @@ export function crearExploracion(T, scene, camera, renderer, ui={}) {
   for(const z of [-.17,.17])box(0,.14,z,.39,.26,.044,gasket,kit)
   rod([-.09,.34,0],[.09,.34,0],.028,gasket,kit);for(const x of [-.09,.09])rod([x,.265,0],[x,.34,0],.024,gasket,kit)
   const tablet=group(-1.56,1.5,-1.54,'tablet de navegación');box(0,.015,0,.36,.046,.26,black,tablet);box(0,.044,0,.29,.012,.19,cyan,tablet)
-  // Exterior topography: a flat crash site blending into eroded hummocks and a distant rim.
-  function height(x,z){const r=Math.hypot(x,z),f=clamp((r-13)/35,0,1);return f*(1.06*Math.sin(x*.083+z*.027)+.72*Math.sin(z*.137-x*.031)+.32*Math.sin(x*.22+z*.11))}
-  const ground=new T.PlaneGeometry(460,460,145,145);ground.rotateX(-Math.PI/2);const pos=ground.attributes.position,cols=[];const soil=new T.Color()
-  for(let i=0;i<pos.count;i++){const x=pos.getX(i),z=pos.getZ(i);const h=height(x,z);pos.setY(i,h-.035);soil.setHex(0xb47651).multiplyScalar(.87+.16*random()+.1*Math.sin(x*.071+z*.047));cols.push(soil.r,soil.g,soil.b)}
-  ground.setAttribute('color',new T.Float32BufferAttribute(cols,3));ground.computeVertexNormals()
-  const grit=new Uint8Array(128*128*4);for(let i=0;i<grit.length;i+=4){const v=198+Math.round(57*random());grit.set([v,v,v,255],i)}
-  const dustMap=new T.DataTexture(grit,128,128,T.RGBAFormat);dustMap.wrapS=dustMap.wrapT=T.RepeatWrapping;dustMap.repeat.set(180,180);dustMap.generateMipmaps=true;dustMap.minFilter=T.LinearMipmapLinearFilter;dustMap.magFilter=T.LinearFilter;dustMap.needsUpdate=true
-  mesh(ground,new T.MeshStandardMaterial({vertexColors:true,map:dustMap,roughness:1}),0,0,0)
-  const ring=[],rimCol=[],idx=[];for(let i=0;i<=140;i++){const a=i/140*TAU, noise=Math.sin(a*9)+.5*Math.sin(a*18)+.33*Math.cos(a*29), ridge=4.2+9*Math.abs(Math.cos(a*2.4)) +4*noise;
-    for(let j=0;j<3;j++){const r=[93,116,142][j]+4*noise;ring.push(Math.sin(a)*r,[-2,ridge*.47,ridge][j],Math.cos(a)*r);soil.setHex([0xc18c70,0xad816c,0x946c5b][j]).multiplyScalar(.91+.08*Math.cos(a*9));rimCol.push(soil.r,soil.g,soil.b)}
-    if(i)for(let j=0;j<2;j++){let k=i*3+j;idx.push(k-3,k,k+1,k-3,k+1,k-2)}
-  }
-  const rg=new T.BufferGeometry();rg.setAttribute('position',new T.Float32BufferAttribute(ring,3));rg.setAttribute('color',new T.Float32BufferAttribute(rimCol,3));rg.setIndex(idx);rg.computeVertexNormals();mesh(rg,new T.MeshStandardMaterial({vertexColors:true,side:T.DoubleSide}),0,0,0)
-  const rocks=new T.InstancedMesh(new T.IcosahedronGeometry(1,0),material(0xffffff,0,1),740),dummy=new T.Object3D();world.add(rocks)
-  for(let i=0;i<rocks.count;i++){const a=random()*TAU,r=6+random()**1.4*79,x=r*Math.cos(a),z=r*Math.sin(a),size=.045+random()**4*(r>16?1.9:.44);dummy.position.set(x,height(x,z)+size*.10,z);dummy.rotation.set(random(),a,random());dummy.scale.set(size*(.86+random()),size*(.38+random()*.3),size);dummy.updateMatrix();rocks.setMatrixAt(i,dummy.matrix);soil.setHex(random()>.42?0x785447:0x93664c).multiplyScalar(.8+.45*random());rocks.setColorAt(i,soil)}
-  // Layered soft contact patches and a gouge running back along the landing track.
+  // Terreno real de Ares Vallis: DTM HiRISE en el centro y MOLA alrededor.
+  const terreno=crearTerreno(T,world,{anisotropia:4})
+  const height=(x,z)=>terreno.altura(x,z)
+  terreno.iniciar()
+  const estacion=crearEstacionSagan(T,world,height)
+  const rockBounds=terreno.limitesRocas
+  // Sombra de contacto. Las huellas se integran directamente en el regolito.
   const shadeData=new Uint8Array(64*64*4);for(let i=0;i<4096;i++){const r=Math.hypot((i%64-31.5)/31.5,(Math.floor(i/64)-31.5)/31.5);shadeData.set([65,39,32,Math.round(210*Math.max(0,1-r*r)**2)],i*4)}
   const stain=new T.DataTexture(shadeData,64,64);stain.magFilter=T.LinearFilter;stain.needsUpdate=true;const shade=new T.MeshBasicMaterial({map:stain,transparent:true,depthWrite:false});const patch=(x,z,w,l)=>{const o=mesh(new T.PlaneGeometry(w,l),shade,x,.003,z);o.rotation.x=-Math.PI/2;return o}
-  patch(0,-.1,7.9,12);patch(0,9,5.5,24);for(const s of [-1,1]){patch(s*2.3,8,1.3,20);for(let j=0;j<10;j++)box(s*(2.4+.25*random()),.016,3+j*.85,.32+random()*.43,.07,.86,material(0x936449,0,1)).rotation.y=s*.22}
-  // Broken rims of excavated soil flank a long scrape; keep the central ramp unobstructed.
-  for(const s of [-1,1]){
-    const p=[],rgb=[],ix=[],uv=[];for(let i=0;i<=49;i++){const z=4-i*.42,fade=Math.sin(i/49*Math.PI)**.55,w=(.42+random()*.21)*fade,spine=s*(2.29+.27*Math.cos(z*.27)+.025*Math.max(-z,0)**1.4)
-      for(let j=0;j<5;j++){const lateral=[-.93,-.55,.04,.34,.86][j],xx=spine+s*lateral*w*2.6,h=[.013,.018,.046,.19+random()*.12,.012][j]*fade; p.push(xx,height(xx,z)+h,z);uv.push((xx+230)/460,(230-z)/460);soil.setHex([0xab7050,0x714b39,0x7a5039,0xae7350,0xbc7e58][j]).multiplyScalar(.92+random()*.10);rgb.push(soil.r,soil.g,soil.b)}
-      if(i)for(let j=0;j<4;j++){const k=i*5+j;ix.push(k-5,k,k+1,k-5,k+1,k-4)}
-    }const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(p,3));g.setAttribute('color',new T.Float32BufferAttribute(rgb,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setIndex(ix);g.computeVertexNormals();mesh(g,new T.MeshStandardMaterial({vertexColors:true,map:dustMap,roughness:1,side:T.DoubleSide}),0,0,0)
-  }
+  patch(0,-.1,7.9,12)
   // No hardware outside at touchdown. A boot-sized projection previews the player's chosen site.
   const guide=mesh(new T.RingGeometry(.49,.53,40),new T.MeshBasicMaterial({color:0x95e4c3,side:T.DoubleSide,transparent:true,opacity:.8,depthWrite:false}),0,0,0);guide.rotation.x=-Math.PI/2;guide.visible=false
   const base=group(0,0,0,'baliza de campo'),baseShade=patch(0,0,2.25,1.85);base.visible=baseShade.visible=false
@@ -144,7 +128,7 @@ export function crearExploracion(T, scene, camera, renderer, ui={}) {
   // Dusty scattering gradient and compact pale sun, fixed to the scene horizon.
   const skyMat=new T.ShaderMaterial({side:T.BackSide,depthWrite:false,vertexShader:`varying vec3 ray; void main(){ray=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,fragmentShader:`varying vec3 ray;void main(){vec3 d=normalize(ray);float h=clamp(d.y,0.,1.);vec3 c=mix(vec3(.68,.40,.26),vec3(.28,.16,.12),pow(h,.52));float s=max(dot(d,normalize(vec3(-.46,.28,-.84))),0.);c+=vec3(.40,.35,.26)*pow(s,18.)+vec3(.9,.83,.62)*smoothstep(.99973,.99987,s);gl_FragColor=vec4(c,1.);
 #include <colorspace_fragment>
-}`});const sky=mesh(new T.SphereGeometry(230,40,16),skyMat,0,0,0)
+}`});const sky=mesh(new T.SphereGeometry(4500,40,16),skyMat,0,0,0)
   const motes=new Float32Array(90*3);for(let i=0;i<motes.length;i+=3){motes[i]=(random()-.5)*28;motes[i+1]=.1+random()**2*1.3;motes[i+2]=-6-random()*19}
   const motesG=new T.BufferGeometry();motesG.setAttribute('position',new T.BufferAttribute(motes,3));const grains=new T.Points(motesG,new T.PointsMaterial({color:0xf3cba0,size:.024,transparent:true,opacity:.56,depthWrite:false}));world.add(grains)
   const airMat=new T.SpriteMaterial({map:stain,color:0xecc5a3,transparent:true,opacity:0,depthWrite:false});const vent=Array.from({length:8},()=>{const puff=new T.Sprite(airMat);world.add(puff);return {puff,x:random()-.5,y:.35+random(),z:random(),spin:random()}})
@@ -156,79 +140,250 @@ export function crearExploracion(T, scene, camera, renderer, ui={}) {
 
   const canvas=renderer.domElement,oldTouch=canvas.style?.touchAction
   if(canvas.style)canvas.style.touchAction='none'
-  let x=0,z=1.34,yaw=0,pitch=-.045,mx=0,mz=0,outside=false,hasKit=false,hasTablet=false,scanned=false,anchored=false,assembled=false,disposed=false,bob=0,walking=false,drag=null,target=null
+  let x=0,z=1.34,y=0,vy=0,airborne=false,yaw=0,pitch=-.045,mx=0,mz=0,outside=false,hasKit=false,hasTablet=false,scanned=false,anchored=false,assembled=false,disposed=false,bob=0,walking=false,sprinting=false,drag=null,target=null
   let placing=0,unfolding=0,lastCycle=''
+  // Rover de superficie: se despliega junto al jugador y se conduce en tercera persona.
+  const rover=new T.Group();rover.name='rover de superficie';rover.visible=false;world.add(rover)
+  const carga=kit.clone();carga.name='baliza estibada en rover';carga.position.set(-.85,1.26,1.55);carga.rotation.y=Math.PI/2;carga.visible=false;rover.add(carga)
+  const ruedas=[]
+  {
+    const alu=material(0xd9d3c3,.45,.45),gris=material(0x61686c,.7,.35),azul=material(0x3b578d,.35,.5),negro=material(0x1c1f21,.2,.7)
+    const chasis=new T.Mesh(new T.BoxGeometry(2.5,.55,3.7),alu);chasis.position.y=1.02;rover.add(chasis)
+    const cab=new T.Mesh(new T.SphereGeometry(.9,18,12,0,TAU,0,Math.PI/2),alu);cab.position.set(0,1.28,-.5);rover.add(cab)
+    const luna=new T.Mesh(new T.CircleGeometry(.5,20),new T.MeshStandardMaterial({color:0x2b4a55,roughness:.2,metalness:.7}));luna.position.set(0,1.62,-1.34);rover.add(luna)
+    const panel=new T.Mesh(new T.BoxGeometry(2.7,.07,1.9),azul);panel.position.set(0,1.63,.85);panel.rotation.x=-.22;rover.add(panel)
+    for(const s of [-1,1]){const riel=new T.Mesh(new T.BoxGeometry(.08,.08,1.9),gris);riel.position.set(s*.9,1.62,.8);rover.add(riel)}
+    const mastil=new T.Mesh(new T.CylinderGeometry(.06,.06,2.2,8),gris);mastil.position.set(.78,2.0,-.55);rover.add(mastil)
+    const ojo=new T.Mesh(new T.BoxGeometry(.36,.24,.32),negro);ojo.position.set(.78,3.1,-.55);rover.add(ojo)
+    const lente=new T.Mesh(new T.SphereGeometry(.09,10,8),new T.MeshBasicMaterial({color:0x9fe0ff}));lente.position.set(.78,3.1,-.72);rover.add(lente)
+    for(const s of [-1,1]){const faro=new T.Mesh(new T.SphereGeometry(.14,10,8),new T.MeshBasicMaterial({color:0xffd9a0}));faro.position.set(s*.85,1.3,-1.92);rover.add(faro)}
+    const geoRueda=new T.CylinderGeometry(.44,.44,.34,16),geoBuje=new T.CylinderGeometry(.16,.16,.38,10)
+    for(const [wx,wz] of [[-1.32,-1.25],[1.32,-1.25],[-1.32,0],[1.32,0],[-1.32,1.25],[1.32,1.25]]){
+      const g=new T.Group();g.position.set(wx,.5,wz);rover.add(g)
+      const llanta=new T.Mesh(geoRueda,gris);llanta.rotation.z=Math.PI/2;g.add(llanta)
+      const buje=new T.Mesh(geoBuje,negro);buje.rotation.z=Math.PI/2;g.add(buje)
+      ruedas.push(g)
+    }
+    for(const s of [-1,1]){const brazo=new T.Mesh(new T.CylinderGeometry(.07,.07,1.4,8),gris);brazo.position.set(s*1.32,1.02,-.6);brazo.rotation.x=Math.PI/2;rover.add(brazo)}
+  }
+  let roverEstado='guardado',roverX=0,roverZ=-9,roverYaw=0,roverVel=0,conduciendo=false,miradaYaw=0,miradaPitch=-.08
+  let llegadaSagan=false,panelesLimpios=false,encendidoIntentado=false,balizaConectada=false,comunicacionesActivas=false,kitReplegado=false
+  const alcanceRadio=12
+  function balizaCercana(){return anchored&&assembled&&!unfolding&&Math.hypot(base.position.x-SAGAN.x,base.position.z-SAGAN.z)<=alcanceRadio}
+  function estadoBaliza(){return !hasKit?'en la nave':!anchored?(conduciendo?'a bordo del rover':'en mano'):!assembled?'trípode anclado':balizaConectada?'conectada a Pathfinder':balizaCercana()?'instalada junto a Pathfinder':'instalada en campo'}
+  function estadoRadio(){return comunicacionesActivas?'enlace con Tierra activo':balizaConectada?'baliza conectada · lista para transmitir':encendidoIntentado?'encendido local · sin enlace':panelesLimpios?'paneles limpios · apagada':'paneles cubiertos de polvo'}
+  function actualizarLander(){estacion.telemetria({panelesLimpios,encendidoIntentado,balizaConectada,comunicacionesActivas})}
+  const arriba=new T.Vector3(0,1,0),normalSuelo=new T.Vector3(),qAlinea=new T.Quaternion(),qGiro=new T.Quaternion()
   const esclusa=crearEsclusa(T,world,{hatch,door,placard,position:()=>({x,z}),notify:msg=>say('status',msg)})
   const lookDir=new T.Vector3(),candidate=new T.Vector3(),dropPoint=new T.Vector3(),handPoint=new T.Vector3()
-  const rockBounds=[];for(let i=0;i<rocks.count;i++){rocks.getMatrixAt(i,dummy.matrix);const m=dummy.matrix.elements;rockBounds.push([m[12],m[14],Math.max(Math.hypot(m[0],m[1],m[2]),Math.hypot(m[8],m[9],m[10]))])}
   function placement(){
-    if(!exteriorZone||!hasKit||anchored||z> -6.5&&Math.abs(x)<4.5)return false
+    if(conduciendo||!exteriorZone||!hasKit||anchored||z> -6.5&&Math.abs(x)<4.5)return false
     camera.getWorldDirection(lookDir);if(lookDir.y>-.3)return false
     let d=(height(x,z)-camera.position.y)/lookDir.y
     for(let i=0;i<2;i++){candidate.copy(camera.position).addScaledVector(lookDir,d);d=(height(candidate.x,candidate.z)-camera.position.y)/lookDir.y}
     if(d<.5||d>3.4||Math.abs(candidate.x)<3.9&&candidate.z> -6.75&&candidate.z<Z_FIN_CASCO+1||Math.hypot(candidate.x-x,candidate.z-z)<.8)return false
     const {x:px,z:pz}=candidate
+    if(!estacion.permite(px,pz,.65)||roverEstado!=='guardado'&&Math.hypot(px-roverX,pz-roverZ)<2.5)return false
     if(rockBounds.some(([rx,rz,r])=>r>.18&&Math.hypot(rx-px,rz-pz)<r+.54))return false
     candidate.y=height(px,pz);return Math.abs(height(px+.6,pz)-candidate.y)<.18&&Math.abs(height(px,pz+.6)-candidate.y)<.18
   }
   const keys=new Set(), texts=new Map(),listeners=[]
   function say(type,msg){if(texts.get(type)!==msg){texts.set(type,msg);ui[type]?.(msg)}}
+  function distanciaSagan(){return Math.hypot(x-SAGAN.x,z-SAGAN.z)}
+  function rumboSagan(){const a=(Math.atan2(SAGAN.x-x,-(SAGAN.z-z))*180/Math.PI+360)%360;return ['norte','noreste','este','sureste','sur','suroeste','oeste','noroeste'][Math.round(a/45)%8]}
+  function telemetriaMision(){return {panelesLimpios,encendidoIntentado,balizaConectada,comunicacionesActivas,estadoBaliza:estadoBaliza(),estadoRadio:estadoRadio(),sitioBaliza:anchored?{x:dropPoint.x,z:dropPoint.z}:null}}
+  function textoDistancia(){const d=distanciaSagan();return d>=1000?`${(d/1000).toFixed(1).replace('.',',')} km`:`${Math.round(d)} m`}
   function goals(){
     const chamber=Math.abs(x)<1.8&&z< -2.12&&z> -4.03
-    say('objective',chamber?esclusa.resumen():!exteriorZone?'Puente de mando a proa · equipo en los bancos · esclusa a popa.':assembled?'Baliza local activa, sin enlace orbital. Puedes volver por la esclusa.':anchored?'Mira la base que anclaste y acopla el mástil.':hasKit?'Elige suelo despejado y mira abajo para anclar el trípode.':'El kit de baliza sigue a bordo, en el banco EVA.')
-    say('inventory',[hasTablet?'Tablet · mapa local':'',hasKit?(assembled?'Baliza desplegada':anchored?'Mástil plegado':'Kit de baliza en mano'):'',scanned?'Traje verificado':''].filter(Boolean).join('  /  ')||'Sin equipo recogido')}
+    let objetivo
+    if(chamber)objetivo=esclusa.resumen()
+    else if(!exteriorZone)objetivo='Puente de mando a proa · equipo en los bancos · esclusa a popa.'
+    else if(comunicacionesActivas)objetivo='Enlace con Tierra activo. Explora Sagan o vuelve a la nave.'
+    else if(distanciaSagan()<24){
+      if(conduciendo)objetivo='Baja del rover para trabajar en Pathfinder.'
+      else if(!panelesLimpios)objetivo='Acércate a Pathfinder y limpia sus paneles solares.'
+      else if(!encendidoIntentado)objetivo='Intenta encender Pathfinder con los paneles limpios.'
+      else if(balizaConectada)objetivo='Usa la radio de Pathfinder para establecer el enlace con Tierra.'
+      else if(balizaCercana())objetivo='Mira el lander y conecta la baliza a Pathfinder.'
+      else if(anchored&&!assembled)objetivo='Acopla el mástil al trípode de la baliza.'
+      else objetivo=anchored?'Recoge la baliza que dejaste en campo; su posición está en la tablet.':hasKit?`Mira al suelo y monta la baliza a ${alcanceRadio} m o menos de Pathfinder.`:'Trae el kit de baliza del banco EVA de la nave.'
+    }else if(!hasKit)objetivo='Recoge el kit de baliza y la tablet en los bancos de la nave.'
+    else if(anchored)objetivo=assembled?'Mira la baliza instalada y replíegala para llevarla a Sagan.':'Mira la base que anclaste y acopla el mástil.'
+    else if(!kitReplegado&&!conduciendo)objetivo='Mira suelo despejado para montar la baliza; podrás replegarla para el viaje.'
+    else objetivo=`Lleva la baliza a Sagan: ${textoDistancia()} al ${rumboSagan()}. ${conduciendo?'Conduce con W/S y gira con A/D.':roverEstado==='guardado'?'Pulsa V para desplegar el rover.':'Sube al rover con V.'}`
+    say('objective',objetivo)
+    say('inventory',[hasTablet?'Tablet · mapa':'',hasKit?`Baliza ${estadoBaliza()}`:'',roverEstado==='guardado'?'':'Rover desplegado',scanned?'Traje verificado':''].filter(Boolean).join('  /  ')||'Sin equipo recogido')}
   const actions=[...esclusa.actions,{...puente.accion,run(){say('status',puente.diagnosticar())}},
     {id:'kit',pt:[1.53,1.66,-.94],range:1.67,text:'Recoger kit de baliza',active:()=>!hasKit,run(){hasKit=true;kit.visible=false;carried.visible=true;say('status','Llevas el trípode, el mástil y la batería. Busca suelo despejado fuera de la nave.')}},
-    {id:'tablet',pt:[-1.53,1.54,-1.54],range:1.65,text:'Recoger tablet',active:()=>!hasTablet,run(){hasTablet=true;tablet.visible=false;say('status','Mapa almacenado: Ares Vallis. GPS sin conexión.')}},
+    {id:'tablet',pt:[-1.53,1.54,-1.54],range:1.65,text:'Recoger tablet',active:()=>!hasTablet,run(){hasTablet=true;tablet.visible=false;ui.tablet?.(true);say('status','Tablet en mano: mapa de Ares Vallis con la estación Sagan marcada. Pulsa M para consultarlo.')}},
     {id:'scan',pt:[-1.53,1.6,-.96],range:1.65,text:'Usar escáner médico',active:()=>!scanned,run(){scanned=true;say('status','Presión del traje estable. Contusión leve en el hombro.')}},
+    {id:'pathfinder',get pt(){return [SAGAN.x,height(SAGAN.x,SAGAN.z)+1,SAGAN.z]},range:4.5,get text(){return !panelesLimpios?'Limpiar paneles solares':!encendidoIntentado?'Intentar encendido de Pathfinder':balizaConectada?'Establecer enlace con Tierra':balizaCercana()?'Conectar baliza a Pathfinder':'Comprobar alcance de la baliza'},
+      active:()=>llegadaSagan&&!conduciendo&&!comunicacionesActivas,
+      run(){let mensaje
+         if(!panelesLimpios){panelesLimpios=true;mensaje='Retiras el polvo de los paneles solares. Ya puedes intentar el encendido.'}
+         else if(!encendidoIntentado){encendidoIntentado=true;mensaje='La batería responde, pero Pathfinder no llega a Tierra por sí solo. Necesita tu baliza.'}
+         else if(!balizaCercana()){mensaje=`No se detecta repetidor. Monta el trípode y su mástil a ${alcanceRadio} m o menos del lander.`}
+         else if(!balizaConectada){balizaConectada=true;mensaje='Pathfinder reconoce la baliza. Canal de transmisión preparado.'}
+         else{comunicacionesActivas=true;mensaje='Enlace con Tierra establecido. Pathfinder transmite de nuevo desde Ares Vallis.'}
+         actualizarLander();say('status',mensaje)}},
+    {id:'replegar',get pt(){return [base.position.x,base.position.y+.72,base.position.z]},range:2.5,text:'Replegar y recoger baliza',active:()=>anchored&&assembled&&!unfolding,
+       run(){const desconectada=balizaConectada;anchored=assembled=balizaConectada=comunicacionesActivas=false;kitReplegado=true;base.visible=baseShade.visible=mast.visible=false;carried.visible=true;actualizarLander();say('status',desconectada?'Baliza recogida. Pathfinder queda sin enlace con Tierra.':'Trípode y mástil replegados. Puedes llevar la baliza en el rover.')}},
+    {id:'rover',get pt(){return [roverX,floorY(roverX,roverZ)+1.15,roverZ]},range:3.4,text:'Subir al rover',active:()=>roverEstado==='desplegado',run(){subirRover()}},
     {id:'relay',get pt(){return [base.position.x,base.position.y+.55,base.position.z]},range:2.2,text:'Acoplar mástil y conectar batería',active:()=>anchored&&placing===0&&!assembled,run(){assembled=true;unfolding=.001;mast.visible=true;say('status','Mástil conectado. Baliza local activa, sin enlace orbital.')}}
   ]
   const plant={text:'Anclar trípode aquí',run(){if(!placement())return;anchored=true;placing=.001;carried.visible=false;base.visible=baseShade.visible=true;guide.visible=false;dropPoint.copy(candidate);base.position.copy(candidate);baseShade.position.set(candidate.x,candidate.y+.029,candidate.z);base.rotation.y=yaw;packed.getWorldPosition(handPoint);base.scale.setScalar(.44);say('status','Base anclada. Falta acoplar el mástil y conectar la batería.')}}
   const dir=new T.Vector3(),way=new T.Vector3()
-  function targets(){camera.getWorldDirection(dir);let best=-1;target=null;for(const a of actions){if(!a.active())continue;way.set(...a.pt).sub(camera.position);const d=way.length(),dot=dir.dot(way.normalize());if(d>a.range||dot<.77)continue;const score=dot-.085*d;if(score>best){best=score;target=a}}
+  function targets(){if(conduciendo){target=null;guide.visible=false;say('prompt','');return}camera.getWorldDirection(dir);let best=-1;target=null;for(const a of actions){if(!a.active())continue;way.set(...a.pt).sub(camera.position);const d=way.length(),dot=dir.dot(way.normalize());if(d>a.range||dot<.77)continue;const score=dot-.085*d;if(score>best){best=score;target=a}}
     guide.visible=!target&&placement();if(guide.visible){guide.position.copy(candidate);guide.position.y+=.026;target=plant}
     say('prompt',target?target.text:'')}
-  function interact(){if(disposed)return;targets();if(target){target.run();goals();targets()}}
+  function interact(){if(disposed||ui.paused?.())return;targets();if(target){target.run();goals();targets()}}
   function move(a,b){mx=Number.isFinite(a)?clamp(a,-1,1):0;mz=Number.isFinite(b)?clamp(b,-1,1):0}
-  function look(dx,dy){if(!Number.isFinite(dx)||!Number.isFinite(dy)||disposed)return;yaw-=dx*.0042;pitch=clamp(pitch-dy*.0038,-1.16,1.16);pose();targets()}
-  function floorY(x,z){return Math.abs(x)<.84&&z< -3.9&&z> -6.08 ?clamp((z+6.05)/2.1,0,1)*.59:z>=-3.9&&z<Z_FIN_CASCO&&Math.abs(x)<1.96?.59:height(x,z)}
-  function allowed(x,z){if(!esclusa.permite(x,z)||Math.hypot(x,z)>74)return false
+  function look(dx,dy){
+    if(!Number.isFinite(dx)||!Number.isFinite(dy)||disposed)return
+    if(conduciendo){miradaYaw-=dx*.0042;miradaPitch=clamp(miradaPitch-dy*.0038,-.6,.9)}
+    else{yaw-=dx*.0042;pitch=clamp(pitch-dy*.0038,-1.16,1.16)}
+    pose();targets()
+  }
+  function floorY(px,pz){return Math.abs(px)<.84&&pz< -3.9&&pz> -6.08?clamp((pz+6.05)/2.1,0,1)*.59:pz>=-3.9&&pz<Z_FIN_CASCO&&Math.abs(px)<1.96?.59:height(px,pz)}
+  function allowed(px,pz,radio=0){
+    if(!esclusa.permite(px,pz))return false
     // Being inside the hull is only possible on the cabin deck or inside the door/ramp throat.
-    if(x>-3.02 && x<3.02 && z>-4.23 && z<Z_FIN_CASCO){
-      if(z< -3.48)return Math.abs(x)<.53
-      if(z>=Z_INICIO_PUENTE)return transitablePuente(x,z)
-       if(Math.abs(x)>1.55)return false
-      if(Math.abs(x)>1.09 && ((z>-1.99&&z<.03)||(z>.95&&z<1.98)))return false
+    if(px>-3.02 && px<3.02 && pz>-4.23 && pz<Z_FIN_CASCO){
+      if(pz< -3.48)return Math.abs(px)<.53
+      if(pz>=Z_INICIO_PUENTE)return transitablePuente(px,pz)
+      if(Math.abs(px)>1.55)return false
+      if(Math.abs(px)>1.09 && ((pz>-1.99&&pz<.03)||(pz>.95&&pz<1.98)))return false
     }
-    if(anchored&&Math.abs(x-base.position.x)<.49&&Math.abs(z-base.position.z)<.49)return false
-    return true}
-  function pose(){camera.position.set(x,floorY(x,z)+1.51+(walking?Math.sin(bob)*.018:0),z);camera.rotation.order='YXZ';camera.rotation.set(pitch,yaw,0,'YXZ');camera.updateMatrixWorld(true)}
-  function update(dt){if(disposed)return;dt=clamp(Number(dt)||0,0,.08);esclusa.update(dt);const cycle=esclusa.estado().ciclo
-     if(cycle!==lastCycle&&cycle==='despresurizando')ventTime=0;lastCycle=cycle
-     if(ventTime<2.5){ventTime=Math.min(2.5,ventTime+dt);const t=ventTime/2.5;airMat.opacity=.21*Math.sin(t*Math.PI);for(const {puff,x:offset,y,z:spread,spin} of vent){puff.visible=t<1;puff.position.set(offset*(.8+2*t)+.48*t,y+.4*t,-3.98-spread*.26-t*(.6+spread*1.3));puff.scale.setScalar(.42+t*(1.15+spin))}}
-    if(keys.has('ArrowLeft'))yaw+=dt*1.65;if(keys.has('ArrowRight'))yaw-=dt*1.65
-    const r=mx+Number(keys.has('KeyD'))-Number(keys.has('KeyA')),f=mz+Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown')),mag=Math.max(1,Math.hypot(r,f)),speed=(outside?2.85:2.02)*dt/mag
-    const nx=x+(r*Math.cos(yaw)-f*Math.sin(yaw))*speed,nz=z+(-r*Math.sin(yaw)-f*Math.cos(yaw))*speed
-    walking=Math.abs(r)+Math.abs(f)>.02;if(walking)bob+=dt*8
-    if(allowed(nx,z))x=nx;if(allowed(x,nz))z=nz
+    if(anchored&&Math.abs(px-base.position.x)<.49&&Math.abs(pz-base.position.z)<.49)return false
+    if(!estacion.permite(px,pz,radio))return false
+    return true
+  }
+  function poseRover(dt){
+    const suelo=floorY(roverX,roverZ)
+    rover.position.set(roverX,suelo,roverZ)
+    terreno.normal(roverX,roverZ,normalSuelo)
+    qAlinea.setFromUnitVectors(arriba,normalSuelo)
+    qGiro.setFromAxisAngle(arriba,roverYaw)
+    rover.quaternion.copy(qAlinea).multiply(qGiro)
+    for(const rueda of ruedas)rueda.rotation.x+=roverVel*dt/.44
+  }
+  function pose(){
+    if(conduciendo){
+      const ang=roverYaw+miradaYaw,dist=8.2,alto=3.6
+      const cx=roverX+Math.sin(ang)*dist,cz=roverZ+Math.cos(ang)*dist
+      const suelo=Math.max(floorY(cx,cz),floorY(roverX,roverZ))
+      camera.position.set(cx,suelo+alto,cz)
+      camera.rotation.order='YXZ'
+      camera.lookAt(roverX,floorY(roverX,roverZ)+1.4+miradaPitch*3,roverZ)
+    }else{
+      camera.position.set(x,y+1.51+(walking?Math.sin(bob)*.018:0),z)
+      camera.rotation.order='YXZ';camera.rotation.set(pitch,yaw,0,'YXZ')
+    }
+    camera.updateMatrixWorld(true)
+  }
+  function actualizarRover(r,f,dt,turbo){
+    if(!conduciendo)return
+    roverVel+=f*(turbo?16:9)*dt
+    if(Math.abs(f)<.04)roverVel*=Math.exp(-1.3*dt)
+    roverVel=clamp(roverVel,-5,turbo?26:18)
+    const sentido=roverVel<-.2?-1:1
+    roverYaw-=r*dt*(.9+.6*Math.min(1,Math.abs(roverVel)/8))*sentido
+    const nx=roverX-Math.sin(roverYaw)*roverVel*dt,nz=roverZ-Math.cos(roverYaw)*roverVel*dt
+    if(allowed(nx,nz,1.3)){roverX=nx;roverZ=nz}else roverVel*=.1
+    x=roverX;z=roverZ;y=floorY(x,z)
+  }
+  function subirRover(){
+    conduciendo=true;roverEstado='conduciendo';x=roverX;z=roverZ;y=floorY(x,z);miradaYaw=0;miradaPitch=-.08
+    carried.visible=false;ui.vehiculo?.(roverEstado)
+    say('status','Rover en marcha. W/S acelerar, A/D girar, Shift turbo, V bajar.')
+  }
+  function bajarRover(){
+    const pruebas=[[Math.cos(roverYaw)*2.6,-Math.sin(roverYaw)*2.6],[-Math.cos(roverYaw)*2.6,Math.sin(roverYaw)*2.6],[Math.sin(roverYaw)*3.2,Math.cos(roverYaw)*3.2]]
+    let destino=null
+    for(const [dx,dz] of pruebas){const bx=roverX+dx,bz=roverZ+dz;if(allowed(bx,bz,0)){destino=[bx,bz];break}}
+    if(!destino)destino=[roverX,roverZ]
+    x=destino[0];z=destino[1];y=floorY(x,z);conduciendo=false;roverEstado='desplegado';yaw=roverYaw;pitch=-.06;miradaYaw=0
+    carried.visible=hasKit&&!anchored;ui.vehiculo?.(roverEstado)
+    say('status','Has bajado del rover. Pulsa V a su lado para volver a conducir.')
+  }
+  function vehicle(){
+    if(disposed)return
+    if(conduciendo){bajarRover();return}
+    if(roverEstado==='guardado'){
+      if(!exteriorZone){say('status','El rover está en la bodega. Sal al exterior para desplegarlo.');return}
+      const pruebas=[[Math.cos(yaw)*3.8,-Math.sin(yaw)*3.8],[-Math.sin(yaw)*4.6,-Math.cos(yaw)*4.6],[-Math.cos(yaw)*3.8,Math.sin(yaw)*3.8]]
+      let punto=null
+      for(const [dx,dz] of pruebas){const rx=x+dx,rz=z+dz;if(allowed(rx,rz,1.4)){punto=[rx,rz];break}}
+      if(!punto){say('status','No hay sitio despejado para desplegar el rover.');return}
+      roverX=punto[0];roverZ=punto[1];roverYaw=yaw;roverVel=0;rover.visible=true;roverEstado='desplegado'
+      subirRover();return
+    }
+    const distancia=Math.hypot(x-roverX,z-roverZ)
+    if(distancia>4.6){say('status',`El rover está a ${Math.round(distancia)} m. Acércate para subir.`);return}
+    subirRover()
+  }
+  function jump(){if(disposed||conduciendo||airborne)return;vy=4.3;airborne=true}
+  function sprint(activo){sprinting=Boolean(activo)}
+  function mapa(){if(disposed)return;if(!hasTablet){say('status','Necesitas la tablet del banco EVA para consultar el mapa.');return}ui.mapa?.()}
+  function update(dt){
+    if(disposed)return
+    dt=clamp(Number(dt)||0,0,.08)
+    terreno.actualizar(x,z)
+    estacion.update(dt,{x,z})
+    if(ui.paused?.()===true){keys.clear();move(0,0);sprinting=false;drag=null;pose();return}
+    esclusa.update(dt);const cycle=esclusa.estado().ciclo
+    if(cycle!==lastCycle&&cycle==='despresurizando')ventTime=0;lastCycle=cycle
+    if(ventTime<2.5){ventTime=Math.min(2.5,ventTime+dt);const t=ventTime/2.5;airMat.opacity=.21*Math.sin(t*Math.PI);for(const {puff,x:offset,y,z:spread,spin} of vent){puff.visible=t<1;puff.position.set(offset*(.8+2*t)+.48*t,y+.4*t,-3.98-spread*.26-t*(.6+spread*1.3));puff.scale.setScalar(.42+t*(1.15+spin))}}
+    if(!conduciendo){if(keys.has('ArrowLeft'))yaw+=dt*1.65;if(keys.has('ArrowRight'))yaw-=dt*1.65}
+    const r=mx+Number(keys.has('KeyD'))-Number(keys.has('KeyA'))+(conduciendo?Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')):0)
+    const f=mz+Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown'))
+    if(conduciendo){
+      actualizarRover(r,f,dt,keys.has('ShiftLeft')||keys.has('ShiftRight'))
+    }else{
+      const carrera=sprinting||keys.has('ShiftLeft')||keys.has('ShiftRight')
+      const mag=Math.max(1,Math.hypot(r,f)),vel=(exteriorZone?2.85:2.02)*(carrera?1.7:1)*dt/mag*(airborne?.55:1)
+      const nx=x+(r*Math.cos(yaw)-f*Math.sin(yaw))*vel,nz=z+(-r*Math.sin(yaw)-f*Math.cos(yaw))*vel
+      walking=Math.abs(r)+Math.abs(f)>.02;if(walking)bob+=dt*(carrera?12:8)
+      if(allowed(nx,z))x=nx;if(allowed(x,nz))z=nz
+      const suelo=floorY(x,z)
+      if(airborne){vy-=11.5*dt;y+=vy*dt;if(y<=suelo){y=suelo;vy=0;airborne=false}}else y=suelo
+    }
     const inHull=z>=-3.98&&z<Z_FIN_CASCO&&Math.abs(x)<1.97;if(exteriorZone===inHull){exteriorZone=!inHull;ui.exterior?.(exteriorZone)}
     sky.position.set(x,0,z);windTime+=dt;grains.position.x=Math.sin(windTime*.47)*1.57;grains.position.y=Math.sin(windTime*1.63)*.048
-    if(!outside && z< -6.08){outside=true;say('status','Ares Vallis. Tus botas tocan Marte. La nave ha quedado a tu espalda.');goals()}
+    if(!outside && z< -6.08){outside=true;say('status','Ares Vallis. Tus botas tocan Marte. La nave ha quedado a tu espalda; Sagan está a 2 km al sureste.');goals()}
+    if(!llegadaSagan && exteriorZone && distanciaSagan()<18){llegadaSagan=true;say('status','Estación Científica Sagan. El Pathfinder y la Sojourner siguen aquí desde 1997.');goals()}
+    if(roverEstado!=='guardado')poseRover(dt)
     pose();carried.position.copy(camera.position);carried.quaternion.copy(camera.quaternion);carried.updateMatrixWorld(true)
     if(placing){placing=Math.min(1,placing+dt*1.7);base.position.lerpVectors(handPoint,dropPoint,placing);base.scale.setScalar(.44+.56*placing);if(placing===1)placing=0}
     if(unfolding){unfolding=Math.min(1,unfolding+dt*1.3);mast.scale.y=.15+.85*unfolding;if(unfolding===1)unfolding=0}
     goals();targets()
+    ui.position?.({x,z,y,rumbo:conduciendo?roverYaw:yaw,pitch,conduciendo,caminando:walking,saltando:airborne,velocidad:conduciendo?roverVel:(walking?(sprinting||keys.has('ShiftLeft')||keys.has('ShiftRight')?4.8:2.85):0),roverEstado,tablet:hasTablet,llegadaSagan,...telemetriaMision(),distanciaSagan:distanciaSagan(),direccionSagan:rumboSagan(),exterior:outside})
   }
   function on(el,type,fn,opts){if(!el?.addEventListener)return;el.addEventListener(type,fn,opts);listeners.push(()=>el.removeEventListener(type,fn,opts))}
-  const keyset=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyE'])
-  on(globalThis.window,'keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey||!keyset.has(e.code)||e.target?.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(e.target?.tagName))return;e.preventDefault();if(e.code==='KeyE'){if(!e.repeat)interact()}else keys.add(e.code)})
-  on(globalThis.window,'keyup',e=>keys.delete(e.code));on(globalThis.window,'blur',()=>{keys.clear();move(0,0);drag=null})
+  const keyset=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyE','Space','ShiftLeft','ShiftRight','KeyV','KeyM'])
+  on(globalThis.window,'keydown',e=>{
+    if(e.metaKey||e.ctrlKey||e.altKey||!keyset.has(e.code)||e.target?.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(e.target?.tagName))return
+    e.preventDefault()
+    if(ui.paused?.()===true){if(e.code==='KeyM'&&!e.repeat)ui.mapa?.();return}
+    if(e.code==='KeyE'){if(!e.repeat)interact()}
+    else if(e.code==='Space'){if(!e.repeat)jump()}
+    else if(e.code==='KeyV'){if(!e.repeat)vehicle()}
+    else if(e.code==='KeyM'){if(!e.repeat)mapa()}
+    else keys.add(e.code)
+  })
+  on(globalThis.window,'keyup',e=>keys.delete(e.code))
+  on(globalThis.window,'blur',()=>{keys.clear();move(0,0);sprinting=false;drag=null})
   on(canvas,'pointerdown',e=>{if(drag||e.button!==0)return;drag={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture?.(e.pointerId)})
   on(canvas,'pointermove',e=>{if(!drag||drag.id!==e.pointerId)return;look(e.clientX-drag.x,e.clientY-drag.y);drag.x=e.clientX;drag.y=e.clientY})
   const end=e=>{if(drag?.id===e.pointerId)drag=null};on(canvas,'pointerup',end);on(canvas,'pointercancel',end);on(canvas,'lostpointercapture',end)
-  ui.exterior?.(false);say('status','Despiertas bajo las luces de emergencia. El pasillo ámbar conduce a la escotilla.');goals();pose();targets()
+  y=floorY(x,z)
+  if(z<-6.08)outside=true
+  ui.exterior?.(false);ui.vehiculo?.(roverEstado);ui.tablet?.(hasTablet)
+  say('status','Despiertas bajo las luces de emergencia. El pasillo ámbar conduce a la escotilla.');goals();pose();targets()
   function dispose(){if(disposed)return;disposed=true;listeners.forEach(f=>f());keys.clear();if(drag&&canvas.hasPointerCapture?.(drag.id))canvas.releasePointerCapture(drag.id);if(canvas.style)canvas.style.touchAction=oldTouch
+    estacion.dispose();terreno.dispose()
     scene.remove(world);scene.background=old.bg;scene.fog=old.fog;camera.near=old.near;camera.far=old.far;camera.fov=old.fov;camera.updateProjectionMatrix()
     const gs=new Set(),ms=new Set(),ts=new Set();world.traverse(o=>{if(o.geometry&&!o.isSprite)gs.add(o.geometry);if(o.material)for(const m of [].concat(o.material)){ms.add(m);if(m.map)ts.add(m.map)}if(o.isInstancedMesh)o.dispose()});gs.forEach(g=>g.dispose());ms.forEach(m=>m.dispose());ts.forEach(t=>t.dispose())}
-  return {update,dispose,interact,move,look}
+  function estado(){return {x,z,y,yaw,outside,exteriorZone,hasTablet,rover:roverEstado,conduciendo,airborne,llegadaSagan,...telemetriaMision(),distanciaSagan:distanciaSagan()}}
+  return {update,dispose,interact,move,look,sprint,jump,vehicle,mapa,estado}
 }

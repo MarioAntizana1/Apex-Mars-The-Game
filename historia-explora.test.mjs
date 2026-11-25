@@ -16,7 +16,7 @@ test('el modelo compartido usa +Z proa y apoya sus patas en y=0',()=>{
   const ship=crearNave(T),bounds=new T.Box3().setFromObject(ship);assert.equal(T.REVISION,'160');assert.equal(bounds.min.y,0);assert.ok(bounds.max.z>4.3);assert.ok(bounds.max.y>3.7&&bounds.max.y<4.2);assert.ok(bounds.max.x>2.9&&bounds.max.x<3.4);assert.ok(ship.getObjectByName('escotilla').position.z< -3.9)
 })
 function vista(s,x,y,z){s.aim(x,y,z);s.sim.update(0)}
-function ir(s,tx,tz){const dx=tx-s.camera.position.x,dz=tz-s.camera.position.z;vista(s,tx,s.camera.position.y,tz);s.walk(0,1,Math.hypot(dx,dz)/(s.zone.includes(true)?2.85:2.02))}
+function ir(s,tx,tz){const dx=tx-s.camera.position.x,dz=tz-s.camera.position.z;vista(s,tx,s.camera.position.y,tz);const fuera=s.zone.at(-1)===true;s.walk(0,1,Math.hypot(dx,dz)/(fuera?2.85:2.02))}
 function mando(s,pt,label){vista(s,...pt);assert.match(s.hud.prompt,label);s.sim.interact();s.walk(0,0,.95)}
 const aCab=[1.14,1.73,-1.95],aCam=[1.14,1.73,-2.29],bCam=[1.16,1.73,-3.77],bMar=[1.16,1.73,-4.22],aire=[-1.71,1.72,-3.02]
 function salir(s){ir(s,0,-1.43);mando(s,aCab,/Abrir puerta A/);ir(s,0,-3.03);mando(s,aCam,/Cerrar puerta A/);mando(s,aire,/Despresurizar/);s.walk(0,0,4);mando(s,bCam,/Abrir puerta B/);ir(s,0,-4.9);ir(s,0,-7.5);assert.equal(s.zone.at(-1),true)}

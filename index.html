@@ -3,13 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>The Game · Globo de Marte</title>
+  <title>APEX / MARS · Globo de Marte</title>
   <link rel="stylesheet" href="./node_modules/cesium/Build/Cesium/Widgets/widgets.css">
   <link rel="stylesheet" href="./interfaz.css?v=cabina">
   <script>window.CESIUM_BASE_URL='./node_modules/cesium/Build/Cesium/'</script>
   <script src="./node_modules/cesium/Build/Cesium/Cesium.js" defer></script>
   <script src="./interfaz.js?v=2" type="module"></script>
   <link rel="stylesheet" href="./historia.css?v=eva3d">
+  <link rel="stylesheet" href="./historia-mundo.css">
   <link rel="stylesheet" href="./menu.css">
   <script src="./globo.js?v=eva3d" type="module"></script>
 </head>
@@ -35,6 +36,7 @@
         <h2 id="turismo">Destinos turísticos</h2>
         <nav id="destinos" aria-labelledby="turismo"></nav>
         <p id="enlace-ius"><a href="?marineris=1">Prueba de aproximación en Valles Marineris</a></p>
+        <p id="documentacion"><a href="./documentacion/README.md">Documentación del proyecto</a> · <a href="./README.md">Cómo jugar</a></p>
         <div id="estado-mapa"><p id="estado" role="status">Cargando relieve global…</p></div>
         <p id="altura" hidden></p>
         <p id="altitud-camara"></p>
@@ -62,6 +64,24 @@
       </div>
     </details>
   </aside>
+  <nav id="menu" aria-label="Menú principal" data-vista="globo">
+    <p class="menu-marca"><span>APEX / MARS</span><small>Globo de Marte</small></p>
+    <div class="menu-lista">
+      <button type="button" data-menu="iniciar" aria-pressed="false"><b>Iniciar partida</b><small>Monte Olimpo</small></button>
+      <button type="button" data-menu="opciones" aria-pressed="false"><b>Opciones</b><small>Cráter Jezero</small></button>
+      <button type="button" data-menu="globo" aria-pressed="false"><b>Ver el globo</b><small>Marte completo</small></button>
+      <button type="button" data-menu="creditos" aria-pressed="false"><b>Créditos</b><small>Valles Marineris</small></button>
+    </div>
+    <section id="menu-opciones" hidden aria-label="Opciones">
+      <label><input id="opcion-sonido" type="checkbox"> Sonidos</label>
+      <label><input id="opcion-ciencia" type="checkbox"> Imágenes científicas</label>
+      <label><input id="opcion-rumbo" type="checkbox"> Flecha de rumbo a Sagan</label>
+      <button type="button" id="menu-volver">Volver a los destinos</button>
+    </section>
+    <section id="menu-creditos" hidden aria-label="Créditos"></section>
+    <p class="menu-docs"><a href="./documentacion/README.md">Documentación del proyecto</a></p>
+    <p id="menu-estado" role="status">Elige un destino</p>
+  </nav>
   <section id="historia" hidden aria-labelledby="historia-titulo">
     <div id="historia-escena" hidden></div>
     <div id="historia-negro" aria-hidden="true" hidden></div>
@@ -69,6 +89,7 @@
       <h2 id="historia-titulo">APEX / MARS · LA CAÍDA</h2>
       <button id="historia-sonido" type="button" hidden aria-pressed="true">Audio</button>
       <button id="historia-saltar" type="button">Saltar prólogo</button>
+      <button id="juego-pausa" type="button" hidden>Menú</button>
       <button id="historia-salir" type="button">Volver al globo</button>
     </header>
     <div id="historia-estado" role="status"></div>
@@ -83,13 +104,14 @@
         <button class="eva-touch" id="eva-correr" type="button" aria-pressed="false">Correr</button>
         <button class="eva-touch" id="eva-salto" type="button">Saltar</button>
       </nav>
-      <output id="eva-ruta" hidden></output>
+      <output id="eva-ruta" hidden><span id="eva-ruta-aguja" aria-hidden="true">➤</span><span id="eva-ruta-texto"></span></output>
       <dialog id="tablet" aria-labelledby="tablet-titulo">
         <p class="tablet-id">APEX / CARTOGRAFÍA DE CAMPO</p><h2 id="tablet-titulo">Mapa de Ares Vallis</h2>
-        <canvas id="tablet-carta" width="640" height="320" aria-label="Mapa orientado al norte: nave, explorador y estación Sagan"></canvas>
-        <p class="tablet-leyenda"><span>▲ Tu posición</span><span>□ Nave</span><span>◆ Sagan</span></p>
-        <p id="tablet-lectura"></p><small>Estación científica Carl Sagan · Mars Pathfinder y Sojourner</small>
-        <footer><button id="tablet-ruta" type="button">Seguir rumbo a Sagan</button><button id="tablet-cerrar" type="button">Cerrar mapa</button></footer>
+        <canvas id="tablet-carta" width="720" height="480" aria-label="Mapa orientado al norte: nave, explorador y estación Sagan"></canvas>
+        <div class="tablet-zoom"><button id="tablet-alejar" type="button" aria-label="Alejar el mapa">−</button><button id="tablet-acercar" type="button" aria-label="Acercar el mapa">+</button></div>
+        <p class="tablet-leyenda"><span>▲ Tu posición</span><span>□ Nave</span><span>◆ Sagan</span><span class="tablet-escala" id="tablet-escala"></span></p>
+        <p id="tablet-lectura"></p><small>Estación científica Carl Sagan · Mars Pathfinder y Sojourner · mapa norte-arriba</small>
+        <footer><button id="tablet-ruta" type="button">Centrar en Sagan</button><button id="tablet-cerrar" type="button">Cerrar mapa</button></footer>
       </dialog>
       <p class="eva-ayuda"><b>WASD</b> mover · <b>Arrastrar</b> mirar · <b>E</b> usar · <b>Shift</b> correr · <b>Espacio</b> saltar · <b>V</b> vehículo · <b>M</b> mapa</p>
       <p class="eva-ayuda-tactil">Mueve el mando para caminar. Arrastra el paisaje para mirar.</p>
@@ -101,6 +123,26 @@
       <button type="button" id="historia-girar">Girar vista</button>
       <a href="./historia-modelos.md" target="_blank" rel="noopener">Fuente de los modelos</a>
     </nav>
+    <section id="pausa" hidden aria-labelledby="pausa-titulo">
+      <div class="pausa-fondo" data-cerrar-pausa></div>
+      <div class="pausa-panel" role="dialog" aria-modal="true" aria-labelledby="pausa-titulo">
+        <p class="pausa-marca">APEX / MARS</p>
+        <h2 id="pausa-titulo">Partida en pausa</h2>
+        <nav class="pausa-lista" aria-label="Menú de pausa">
+          <button id="pausa-continuar" type="button">Continuar</button>
+          <button id="pausa-opciones-boton" type="button">Opciones</button>
+          <button id="pausa-creditos-boton" type="button">Créditos</button>
+          <button id="pausa-globo" type="button">Volver al globo y menú</button>
+        </nav>
+        <section id="pausa-opciones" hidden aria-label="Opciones de la partida">
+          <label><input id="pausa-sonido" type="checkbox"> Sonidos</label>
+          <label><input id="pausa-ciencia" type="checkbox"> Imágenes científicas</label>
+          <label><input id="pausa-rumbo" type="checkbox"> Flecha de rumbo a Sagan</label>
+          <button id="pausa-opciones-volver" type="button">Volver al menú de pausa</button>
+        </section>
+        <section id="pausa-creditos" hidden aria-label="Créditos"></section>
+      </div>
+    </section>
   </section>
   <section id="vuelo-panel" hidden aria-labelledby="titulo-vuelo">
     <svg class="vuelo-reticula" viewBox="0 0 160 64" aria-hidden="true" focusable="false">
@@ -158,3 +200,4 @@
   </section>
 </body>
 </html>
+

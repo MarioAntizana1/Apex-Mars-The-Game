@@ -4,6 +4,7 @@ import { ctxDirecto } from './ctx-directo.js?v=color'
 import { crearVuelo } from './vuelo.js?v=cabina'
 import { atmosferaMarciana, stylishTiles } from './imagen-marciana.js'
 import { crearHistoria } from './historia.js'
+import { crearMenu } from './menu.js'
 
 const C = window.Cesium
 const status = document.querySelector('#estado')
@@ -100,6 +101,8 @@ async function start() {
     skyAtmosphere: false, shadows: false, requestRenderMode: true,
   })
   viewer.scene.backgroundColor = C.Color.fromCssColorString('#100c0b')
+  // Hook de diagnóstico para pruebas automatizadas y soporte.
+  window.__apexMars = { C, viewer, scene: viewer.scene }
   const starFace = face => `${window.CESIUM_BASE_URL}Assets/Textures/SkyBox/tycho2t3_80_${face}.jpg`
   const stars = viewer.scene.skyBox = new C.SkyBox({ show: false, sources: {
     positiveX: starFace('px'), negativeX: starFace('mx'),
@@ -143,7 +146,8 @@ async function start() {
     globe.imageryLayers.add(layer)
     return layer
   }
-  imagenes.forEach(layer => addImagery(layer))
+  const capasCientificas = []
+  imagenes.forEach(layer => capasCientificas.push(addImagery(layer)))
   const reduced = matchMedia('(prefers-reduced-motion: reduce)')
   const views = {
     global: [73, 16, 8400000, -90, 'Marte global · relieve MOLA'],
@@ -159,7 +163,15 @@ async function start() {
     viewer.camera.cancelFlight()
   }
   const stopPilot = crearVuelo(C, viewer, status, stopFlyover)
-  crearHistoria(C, viewer, () => { stopPilot(); stopFlyover() })
+  let menu
+  crearHistoria(C, viewer, () => { stopPilot(); stopFlyover() }, () => menu?.mostrar())
+  menu = crearMenu(C, viewer, ellipsoid, {
+    iniciar: () => document.getElementById('abrir-historia').click(),
+    reduced: reduced.matches,
+    ciencia: activa => { for (const capa of capasCientificas) capa.show = activa },
+    detenerVuelo: () => { stopPilot(); stopFlyover(); viewer.camera.cancelFlight() },
+  })
+  document.addEventListener('apex:historia-abierta', () => menu?.ocultar())
   viewer.scene.postRender.addEventListener(() => {
     if (!flyover) return
     const position = viewer.camera.positionCartographic

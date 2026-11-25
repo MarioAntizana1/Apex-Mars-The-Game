@@ -21,11 +21,11 @@ const SOBREVUELOS = {
 }
 
 const CREDITOS = [
+  { titulo: 'Relieve e imagen de Ares Vallis', detalle: 'HiRISE DTM y ortoimágenes del sitio Pathfinder · NASA/JPL/University of Arizona' },
   { titulo: 'Relieve global', detalle: 'MOLA · Mars Orbiter Laser Altimeter, NASA/JPL' },
-  { titulo: 'Imágenes de superficie', detalle: 'CTX · Mars Reconnaissance Orbiter, NASA/JPL-Caltech' },
-  { titulo: 'Valles Marineris', detalle: 'HiRISE · NASA/JPL-Caltech/Universidad de Arizona' },
+  { titulo: 'Imágenes de superficie', detalle: 'CTX y HiRISE · Mars Reconnaissance Orbiter, NASA/JPL-Caltech' },
   { titulo: 'Cartografía base', detalle: 'Viking · NASA/USGS Astrogeology' },
-  { titulo: 'Motor del globo', detalle: 'CesiumJS · Cesium GS, licencia Apache 2.0' },
+  { titulo: 'Motores', detalle: 'CesiumJS · Cesium GS, Apache 2.0 · three.js · MIT' },
   { titulo: 'APEX / MARS', detalle: 'Experiencia educativa de exploración marciana' },
 ]
 
@@ -44,6 +44,7 @@ export function crearMenu(C, viewer, ellipsoid, opciones = {}) {
   const estado = raiz.querySelector('#menu-estado')
   const sonido = raiz.querySelector('#opcion-sonido')
   const ciencia = raiz.querySelector('#opcion-ciencia')
+  const rumbo = raiz.querySelector('#opcion-rumbo')
   const volver = raiz.querySelector('#menu-volver')
   const control = new AbortController()
   const { signal } = control
@@ -173,12 +174,12 @@ export function crearMenu(C, viewer, ellipsoid, opciones = {}) {
   }
 
   function programarPrevia(clave) {
-    if (raiz.hidden || panel || sobrevolando || !VISTAS[clave]) return
+    if (raiz.hidden || sobrevolando || !VISTAS[clave]) return
     cancelarPrevia()
     pendiente = clave
     temporizador = setTimeout(() => {
       temporizador = 0
-      if (raiz.hidden || panel || sobrevolando || pendiente !== clave) return
+      if (raiz.hidden || sobrevolando || pendiente !== clave) return
       const nombre = VISTAS[clave].nombre
       anunciar(`Vista previa · ${nombre}`)
       volarA(clave, () => {
@@ -268,6 +269,7 @@ export function crearMenu(C, viewer, ellipsoid, opciones = {}) {
     const prefs = leerPreferencias()
     if (sonido) sonido.checked = prefs.sonido
     if (ciencia) ciencia.checked = prefs.ciencia
+    if (rumbo) rumbo.checked = prefs.rumbo
     if (prefs.ciencia !== cienciaAplicada) aplicarCiencia(prefs.ciencia)
   }
 
@@ -296,11 +298,16 @@ export function crearMenu(C, viewer, ellipsoid, opciones = {}) {
     aplicarCiencia(ciencia.checked)
     anunciar(ciencia.checked ? 'Imágenes científicas activadas' : 'Imágenes científicas desactivadas')
   })
+  escuchar(rumbo, 'change', () => {
+    guardarPreferencias({ rumbo: Boolean(rumbo.checked) })
+    anunciar(rumbo.checked ? 'Flecha de rumbo activada' : 'Flecha de rumbo desactivada')
+  })
   escuchar(globalThis, 'apex:preferencias', actualizar)
 
   const prefs = leerPreferencias()
   if (sonido) sonido.checked = prefs.sonido
   if (ciencia) ciencia.checked = prefs.ciencia
+  if (rumbo) rumbo.checked = prefs.rumbo
   aplicarCiencia(prefs.ciencia)
   cerrarPaneles()
   seleccionar('globo')

@@ -1,0 +1,7 @@
+# Python tooling caches (the generators are run by hand, not by the site)
+__pycache__/
+*.pyc
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db

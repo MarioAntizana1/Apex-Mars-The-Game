@@ -1,111 +1,200 @@
-// One analytic height field shared by terrain, props, physics and the tablet map.
-// Metres, +X east, +Z south: yaw 0 in the EVA camera looks towards -Z (north).
-const smooth = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t)
+// Ares Vallis. Superficie visible y colisión comparten los mismos triángulos.
+import { crearRegolito, materialRegolito } from './historia-regolito.js'
+import { crearDepositos } from './historia-rocas.js'
 
-export const SAGAN = Object.freeze({ x: 180, z: -340 })
-export const LIMITE = 1150
+const RUTA = './datos/ares/'
+export const MUNDO = Object.freeze({ x0:-4096,z0:-2048,x1:3072,z1:14336,sector:1024,paso:4,muestras:257,columnas:7,filas:16,limite:24000 })
+export const SAGAN = Object.freeze({ x:1200,z:1600 })
+export const ORIGEN = Object.freeze({ lon:326.7575625336271,lat:19.164003701859567 })
+export const ESCALA = Object.freeze({ x:.9537405849265161,y:1.0095308204752965 })
+export const GEO = Object.freeze({ mPorGradoLat:59252,mPorGradoLon:55977 })
+const L = MUNDO.sector, PASO = 64, RADIO = 7, DETALLE = 2
+const clave = (c,f) => `${c}_${f}`
+const esDTM = (c,f) => c>=0 && c<MUNDO.columnas && f>=0 && f<MUNDO.filas
+const sat = x => Math.max(0,Math.min(1,x))
+const suave = x => { const t=sat(x); return t*t*(3-2*t) }
+const mezcla = (a,b,t) => a+(b-a)*t
 
-export function height(x, z) {
-  const r = Math.hypot(x, z)
-  // The impact site keeps a natural flat apron around the hull (r < 13 m).
-  const near = smooth((r - 13) / 35)
-  let h = near * (1.06 * Math.sin(x * .083 + z * .027) + .72 * Math.sin(z * .137 - x * .031) + .32 * Math.sin(x * .22 + z * .11))
-  // Open-world relief fades in past the crater rim.
-  const far = smooth((r - 90) / 240)
-  h += far * (11 * Math.sin(x * .0057 + z * .0033) + 7 * Math.cos(z * .0081 - x * .0042) + 4.5 * Math.sin(x * .014 + z * .011) * Math.cos(z * .006))
-  // Flatten a science pad under the Sagan station so both rovers sit level.
-  const pad = 1 - smooth((Math.hypot(x - SAGAN.x, z - SAGAN.z) - 20) / 46)
-  return h * (1 - pad)
+// Interpolación con la diagonal de THREE.PlaneGeometry para colisiones, o
+// bilineal para campos continuos (peso, raster MOLA y rejilla de referencia).
+export function muestra(a,w,x,z,tri=false) {
+  const i=Math.max(0,Math.min(w-2,Math.floor(x))), j=Math.max(0,Math.min(a.length/w-2,Math.floor(z)))
+  const u=sat(x-i), v=sat(z-j), k=i+j*w, A=a[k], B=a[k+1], C=a[k+w], D=a[k+w+1]
+  return tri ? (u+v<=1 ? A+(B-A)*u+(C-A)*v : D+(C-D)*(1-u)+(B-D)*(1-v)) : mezcla(mezcla(A,B,u),mezcla(C,D,u),v)
 }
-
-export function normal(x, z, target) {
-  const e = 1.5
-  const dx = (height(x + e, z) - height(x - e, z)) / (2 * e)
-  const dz = (height(x, z + e) - height(x, z - e)) / (2 * e)
-  const k = 1 / Math.hypot(dx, 1, dz)
-  return target.set(-dx * k, k, -dz * k)
+// Mismo sistema geográfico y datum que herramientas/datos-ares.py. Las teselas
+// nivel 5 ya existen como archivos independientes (2.1 KiB, 33x33, metros).
+function geografia(x,z) {
+  const gx=((ORIGEN.lon+x/GEO.mPorGradoLon+180)%360+360)%360/360*64
+  const gy=Math.max(0,Math.min(32,(90-ORIGEN.lat+z/GEO.mPorGradoLat)/180*32))
+  const c=Math.min(63,Math.floor(gx)), f=Math.min(31,Math.floor(gy))
+  return [c,f,(gx-c)*32,(gy-f)*32]
 }
-
-// Streamed 96 m tiles centred on the explorer; fog hides the outer ring.
-const TILE = 96, DIV = 48, SPAN = 5, ROCAS = 26
-const hash = (x, z) => {
-  const n = Math.imul(x | 0, 73856093) ^ Math.imul(z | 0, 19349663)
-  return (Math.imul(n ^ (n >>> 16), 2246822519) >>> 0) / 4294967296
-}
-
-export function crearSuperficie(T, world, polvo) {
-  const suelo = new T.MeshStandardMaterial({ vertexColors: true, map: polvo, roughness: 1 })
-  const piedra = new T.MeshStandardMaterial({ color: 0x8e614c, roughness: 1, flatShading: true })
-  const forma = new T.IcosahedronGeometry(1, 0)
-  const dummy = new T.Object3D(), color = new T.Color(), n = new T.Vector3()
-  const slots = Array.from({ length: SPAN * SPAN }, () => {
-    const g = new T.PlaneGeometry(TILE, TILE, DIV, DIV)
-    g.rotateX(-Math.PI / 2)
-    g.setAttribute('color', new T.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 3), 3))
-    const ground = new T.Mesh(g, suelo)
-    const rocks = new T.InstancedMesh(forma, piedra, ROCAS)
-    rocks.frustumCulled = true
-    world.add(ground, rocks)
-    return { g, ground, rocks, ix: Infinity, iz: Infinity }
-  })
-  let lastX = Infinity, lastZ = Infinity
-
-  function pintar(tile, ix, iz) {
-    const { g, ground, rocks } = tile
-    const ox = ix * TILE, oz = iz * TILE
-    ground.position.set(ox, 0, oz)
-    rocks.position.set(ox, 0, oz)
-    const p = g.attributes.position, c = g.attributes.color, nr = g.attributes.normal
-    for (let i = 0; i < p.count; i++) {
-      const x = ox + p.getX(i), z = oz + p.getZ(i), h = height(x, z)
-      p.setY(i, h)
-      const slope = normal(x, z, n)
-      nr.setXYZ(i, slope.x, slope.y, slope.z)
-      const grain = hash(Math.round(x * .5), Math.round(z * .5))
-      color.setHex(0xb47651).multiplyScalar((.86 + .16 * grain) * (.9 + .14 * slope.y))
-      c.setXYZ(i, color.r, color.g, color.b)
-    }
-    p.needsUpdate = nr.needsUpdate = c.needsUpdate = true
-    g.computeBoundingSphere()
-    let count = 0
-    for (let i = 0; i < ROCAS; i++) {
-      const wx = ox + (hash(ix * 79 + i, iz) - .5) * TILE
-      const wz = oz + (hash(ix, iz * 79 + i + 421) - .5) * TILE
-      const size = .06 + hash(ix * 85 + i + 67, iz + 42) ** 4 * 1.5
-      if (Math.hypot(wx, wz) < 72 || Math.hypot(wx - SAGAN.x, wz - SAGAN.z) < 30) continue
-      dummy.position.set(wx - ox, height(wx, wz) + size * .07, wz - oz)
-      dummy.rotation.set(.2, i * 2.39, .1)
-      dummy.scale.set(size * 1.25, size * .5, size)
-      dummy.updateMatrix()
-      rocks.setMatrixAt(count++, dummy.matrix)
-    }
-    rocks.count = count
-    rocks.instanceMatrix.needsUpdate = true
-    rocks.computeBoundingSphere()
+export function crearTerreno(T,parent,opciones={}) {
+  const base=opciones.base??RUTA, grupo=new T.Group(); grupo.name='terreno real de Ares Vallis'; parent.add(grupo)
+  const bump=crearRegolito(T,opciones.anisotropia??4,MUNDO); bump.repeat.set(L/4,L/4)
+  const depositos=crearDepositos(T,grupo), matBase=materialRegolito(T,bump,{color:0xb38160}), loader=new T.TextureLoader()
+  const chunks=new Map(), mola=new Map(), pendientesMola=new Map(), esperas=[], cola=[]
+  let manifiesto=null, lejano, previa, borde, col, fila, activo=0, listo=false, desechado=false, fallo=null, visorX=0, visorZ=0
+  async function bin(ruta,Tipo,n) {
+    const r=await fetch(new URL(ruta,import.meta.url)); if(!r.ok)throw Error(`${ruta}: HTTP ${r.status}`)
+    const a=new Tipo(await r.arrayBuffer()); if(a.length!==n)throw Error(`${ruta}: tamaño incorrecto`); return a
   }
-
-  function update(x, z) {
-    const cx = Math.floor(x / TILE + .5), cz = Math.floor(z / TILE + .5)
-    if (cx === lastX && cz === lastZ) return
-    lastX = cx
-    lastZ = cz
-    for (let iz = cz - 2; iz <= cz + 2; iz++) {
-      for (let ix = cx - 2; ix <= cx + 2; ix++) {
-        const tile = slots[((iz % SPAN + SPAN) % SPAN) * SPAN + (ix % SPAN + SPAN) % SPAN]
-        if (tile.ix === ix && tile.iz === iz) continue
-        tile.ix = ix
-        tile.iz = iz
-        pintar(tile, ix, iz)
+  function molaLocal(x,z) {
+    const m=manifiesto.lejano, u=(x-m.x0)/m.paso, v=(z-m.z0)/m.paso
+    const dentro=u>=0 && v>=0 && u<=m.lado-1 && v<=m.lado-1
+    const [c,f,i,j]=geografia(x,z), a=mola.get(clave(c,f))
+    const tesela=a ? muestra(a,33,i,j)-manifiesto.origen.altura : null
+    if(!dentro)return tesela ?? 0
+    const d=Math.min(u,v,m.lado-1-u,m.lado-1-v), local=muestra(lejano,m.lado,u,v)*.1
+    if(d>=2)return local
+    // Fundir con la tesela global sólo en el borde del recorte.
+    return tesela===null ? local : mezcla(tesela,local,suave(d/2))
+  }
+  function referencia(x,z) {
+    const d=Math.min(x-MUNDO.x0,MUNDO.x1-x,z-MUNDO.z0,MUNDO.z1-z)
+    if(d<=0)return molaLocal(x,z)
+    const h=muestra(previa,113,(x-MUNDO.x0)/PASO,(z-MUNDO.z0)/PASO)*.1
+    return d>=PASO ? h : mezcla(molaLocal(x,z),h,suave(d/PASO))
+  }
+  function baseSector(c,f) {
+    const n=L/PASO+1, a=new Float32Array(n*n), x=MUNDO.x0+c*L,z=MUNDO.z0+f*L
+    for(let j=0;j<n;j++)for(let i=0;i<n;i++)a[j*n+i]=referencia(x+i*PASO,z+j*PASO)
+    return a
+  }
+  function corregir(r,raw) {
+    const n=257,a=new Float32Array(raw.length), x0=MUNDO.x0+r.c*L,z0=MUNDO.z0+r.f*L
+    for(let j=0;j<n;j++)for(let i=0;i<n;i++) {
+      const k=j*n+i,x=x0+i*4,z=z0+j*4
+      const peso=muestra(borde,449,(x-MUNDO.x0)/16,(z-MUNDO.z0)/16)/255
+      const h=peso>=1 ? raw[k]*.1 : mezcla(molaLocal(x,z),raw[k]*.1,peso)
+      // Toda arista fina coincide con la polilínea del proxy, incluso si el
+      // vecino no llegó o falló. Sólo se ajusta una banda de 16 m.
+      const d=Math.min(i,j,256-i,256-j)
+      a[k]=d>=4 ? h : mezcla(muestra(r.proxy,17,i/16,j/16,true),h,suave(d/4))
+    }
+    return a
+  }
+  function construir(r,a,n,material) {
+    const geo=new T.PlaneGeometry(L,L,n-1,n-1); geo.rotateX(-Math.PI/2)
+    const p=geo.attributes.position
+    for(let k=0;k<a.length;k++)p.setY(k,a[k])
+    geo.computeVertexNormals()
+    // Normales del borde compartidas en espacio mundial. Interpolar los nodos
+    // del proxy (igual en ambos LOD), no calcular una derivada unilateral.
+    const x0=MUNDO.x0+r.c*L,z0=MUNDO.z0+r.f*L, normal=geo.attributes.normal
+    const arista=(i,j,di,dj)=>{
+      const pasos=(n-1)/16
+      for(let t=0;t<=16;t++) {
+        const x=x0+i*L/(n-1)+t*PASO*di,z=z0+j*L/(n-1)+t*PASO*dj
+        const dx=referencia(x-16,z)-referencia(x+16,z), dz=referencia(x,z-16)-referencia(x,z+16), m=Math.hypot(dx,32,dz)
+        const k=(j+t*pasos*dj)*n+i+t*pasos*di
+        normal.setXYZ(k,dx/m,32/m,dz/m)
+        if(t)for(let s=1;s<pasos;s++) {
+          const delta=n*dj+di, k0=k-pasos*delta, q=k0+s*delta, u=s/pasos
+          normal.setXYZ(q,mezcla(normal.getX(k0),dx/m,u),mezcla(normal.getY(k0),32/m,u),mezcla(normal.getZ(k0),dz/m,u))
+        }
       }
     }
+    arista(0,0,1,0);arista(0,n-1,1,0);arista(0,0,0,1);arista(n-1,0,0,1)
+    geo.computeBoundingSphere()
+    const m=new T.Mesh(geo,material);m.name=`${n===17?'base':'HiRISE'} ${r.c}_${r.f}`;m.position.set(x0+L/2,0,z0+L/2);grupo.add(m)
+    return m
   }
-
-  function dispose() {
-    for (const { g } of slots) g.dispose()
-    suelo.dispose()
-    piedra.dispose()
+  function libres(r) {
+    if(r.piedras){depositos.liberarSector(r.m);r.piedras=false}
+    grupo.remove(r.m);r.m.geometry.dispose()
+    if(r.m.material!==matBase){r.m.material.map?.dispose();r.m.material.dispose()}
   }
-
-  update(0, 0)
-  return { update, dispose }
+  function rocas(r,poner) {
+    if(r.piedras===poner)return
+    if(poner)depositos.sector(r.m,r.c,r.f,L,(lx,lz)=>muestra(r.a,r.n,(lx/L+.5)*(r.n-1),(lz/L+.5)*(r.n-1),true),SAGAN)
+    else depositos.liberarSector(r.m)
+    r.piedras=poner
+  }
+  function proxy(r) {
+    if(r.m)libres(r)
+    r.proxy=baseSector(r.c,r.f);r.n=17;r.a=r.proxy;r.m=construir(r,r.a,r.n,matBase);r.piedras=false
+  }
+  function cerca(r){return Math.max(Math.abs(r.c-col),Math.abs(r.f-fila))<=DETALLE}
+  function procesar() {
+    while(!desechado && activo<3 && cola.length) {
+      const r=cola.shift(), key=clave(r.c,r.f)
+      if(r.cargando || r.n!==17 || !cerca(r) || chunks.get(key)!==r)continue
+      activo++;r.cargando=true
+      bin(`${base}terreno/${key}.bin`,Int16Array,257**2).then(raw=>{
+        if(desechado || chunks.get(key)!==r || !cerca(r))return
+        const a=corregir(r,raw),mat=materialRegolito(T,bump,{color:0xb38160})
+        libres(r);r.a=a;r.n=257;r.m=construir(r,a,257,mat);rocas(r,true)
+        if(typeof document!=='undefined')loader.load(new URL(`${base}textura/${key}.webp`,import.meta.url).href,tex=>{
+          if(desechado || chunks.get(key)!==r || r.m.material!==mat){tex.dispose();return}
+          tex.colorSpace=T.SRGBColorSpace;tex.anisotropy=Math.min(4,opciones.anisotropia??4);mat.map=tex;mat.color.setHex(0xffffff);mat.needsUpdate=true
+        },undefined,()=>{})
+      }).catch(e=>console.warn('Sector HiRISE no disponible; permanece la vista previa.',key,e)).finally(()=>{activo--;r.cargando=false;procesar()})
+    }
+  }
+  function actualizarMola(x,z) {
+    // La vista mide 11 sectores. Anticipar otros 8 km para tener el siguiente
+    // raster global antes de entrar; una marcha normal nunca toca el respaldo.
+    const necesarios=new Set()
+    for(const dx of [-14000,0,14000])for(const dz of [-14000,0,14000]){
+      const [c,f]=geografia(x+dx,z+dz),id=clave(c,f);necesarios.add(id)
+      if(mola.has(id)||pendientesMola.has(id))continue
+      const p=bin(`${base}../bloques/relieve/5/${c}/${f}.bin`,Int16Array,33**2).then(a=>{
+        if(desechado || pendientesMola.get(id)!==p)return
+        mola.set(id,a)
+        // El recorte lejano manda dentro de 23.5 km. Refrescar sólo los
+        // exteriores que pudieron usar el respaldo mientras llegaba MOLA.
+        for(const r of chunks.values()){
+          if(esDTM(r.c,r.f))continue
+          const {x,z}=r.m.position
+          if(Math.max(Math.abs(x),Math.abs(z))<22000)continue
+          if(![-L/2,0,L/2].some(dx=>[-L/2,0,L/2].some(dz=>{const [cc,ff]=geografia(x+dx,z+dz);return cc===c && ff===f})))continue
+          proxy(r);rocas(r,cerca(r))
+        }
+      }).catch(e=>console.warn('Tesela MOLA no disponible',id,e)).finally(()=>{if(pendientesMola.get(id)===p)pendientesMola.delete(id)})
+      pendientesMola.set(id,p)
+    }
+    for(const id of mola.keys())if(!necesarios.has(id))mola.delete(id)
+    for(const id of pendientesMola.keys())if(!necesarios.has(id))pendientesMola.delete(id)
+  }
+  function actualizar(x,z) {
+    visorX=x;visorZ=z;depositos.actualizar(x,z)
+    if(!previa || desechado)return
+    const c=Math.floor((x-MUNDO.x0)/L),f=Math.floor((z-MUNDO.z0)/L)
+    if(c===col && f===fila)return
+    col=c;fila=f;cola.length=0;actualizarMola(x,z)
+    for(const [id,r] of chunks)if(Math.max(Math.abs(r.c-c),Math.abs(r.f-f))>RADIO){libres(r);chunks.delete(id)}
+    for(let j=f-RADIO;j<=f+RADIO;j++)for(let i=c-RADIO;i<=c+RADIO;i++){
+      const id=clave(i,j);let r=chunks.get(id)
+      if(!r){r={c:i,f:j};chunks.set(id,r);proxy(r)}
+      const proximo=cerca(r)
+      if(!proximo && r.n!==17)proxy(r)
+      rocas(r,proximo)
+      if(proximo && esDTM(i,j) && r.n===17)cola.push(r)
+    }
+    const d=r=>(r.c-c)**2+(r.f-f)**2
+    cola.sort((a,b)=>d(a)-d(b));procesar()
+  }
+  function altura(x,z) {
+    if(!previa)return 0
+    const u=(x-MUNDO.x0)/L,v=(z-MUNDO.z0)/L,c=Math.floor(u),f=Math.floor(v),r=chunks.get(clave(c,f))
+    return r ? muestra(r.a,r.n,(u-c)*(r.n-1),(v-f)*(r.n-1),true) : referencia(x,z)
+  }
+  function normal(x,z,target){const dx=altura(x-2,z)-altura(x+2,z),dz=altura(x,z-2)-altura(x,z+2);return target.set(dx,4,dz).normalize()}
+  async function iniciar() {
+    try {
+      if(typeof fetch==='function' && typeof globalThis.location!=='undefined'){
+        const resp=await fetch(new URL(base+'manifiesto.json',import.meta.url));if(!resp.ok)throw Error(`HTTP ${resp.status}`)
+        const m=await resp.json(); const [l,p,b]=await Promise.all([bin(base+'lejano.bin',Int16Array,m.lejano.lado**2),bin(base+'previa.bin',Int16Array,113*257),bin(base+'borde.bin',Uint8Array,449*1025)])
+        if(desechado)return null
+        manifiesto=m;lejano=l;previa=p;borde=b;actualizar(visorX,visorZ)
+      }
+    } catch(e){fallo=e;console.warn('Mundo real no disponible.',e)}
+    listo=true;for(const cb of esperas.splice(0))cb(manifiesto);return manifiesto
+  }
+  function dispose(){
+    desechado=true;cola.length=0;esperas.length=0;for(const r of chunks.values())libres(r);chunks.clear();mola.clear();pendientesMola.clear();matBase.dispose();bump.dispose();depositos.dispose();parent.remove(grupo)
+  }
+  return {iniciar,actualizar,altura,normal,dispose,cuandoListo(cb){if(listo)cb(manifiesto);else esperas.push(cb)},limitesRocas:depositos.limites,get manifiesto(){return manifiesto},get listo(){return listo},get fallo(){return fallo}}
 }
