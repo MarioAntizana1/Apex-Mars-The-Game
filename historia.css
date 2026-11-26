@@ -1,3 +1,24 @@
+#fin-demo { width:min(32rem,88vw); box-sizing:border-box; color:#f5eee2; background:#101616; border:1px solid #6b8d83; border-top:3px solid #a3d9c1; border-radius:6px; padding:clamp(1rem,4vw,2rem); pointer-events:auto }
+#fin-demo[open] { animation:fin-demo-texto 1.6s ease-out both }
+#fin-demo::backdrop { background:#050707; animation:fin-demo-negro .8s .45s ease-in both }
+#fin-demo small { font:600 .7rem ui-monospace,monospace; letter-spacing:.1em; color:#c8c7b9 }
+#fin-demo .fin-demo-enlace { color:#a6e7c3; font-family:ui-monospace,monospace }
+#fin-demo h2 { margin:1.3rem 0 .25rem; font-size:1.8rem }
+#fin-demo button { margin:.25rem .35rem .15rem 0 }
+@keyframes fin-demo-negro { from {opacity:0} to {opacity:1} }
+@keyframes fin-demo-texto { 0%,55% {opacity:0} 100% {opacity:1} }
+@media(prefers-reduced-motion:reduce){#fin-demo[open],#fin-demo::backdrop{animation:none}}
+#radio-acto { position:fixed; inset:auto 0 max(4vh,env(safe-area-inset-bottom)) 0; margin:0 auto; width:min(36rem,88vw); max-height:80dvh; overflow:auto; box-sizing:border-box; pointer-events:auto; color:#f6ece0; background:#151d1ef7; border:1px solid #81ada4; border-top:3px solid #9fddc6; border-radius:6px; padding:clamp(.85rem,2.5vw,1.6rem); box-shadow:0 .6rem 3rem #0008 }
+#radio-acto::backdrop { background:linear-gradient(transparent 48%,#080e1099) }
+#historia[data-radio] #eva,#historia[data-radio] .historia-barra { visibility:hidden }
+#radio-acto h2 { margin:.3em 0; font-size:1.22rem }
+#radio-mensaje { font:500 1rem/1.55 system-ui; margin:.45em 0 1em }
+#radio-turno,.radio-canal { font:600 .69rem/1.4 ui-monospace,monospace; letter-spacing:.1em; color:#a7d8c6 }
+.radio-canal { display:flex; align-items:center; gap:.8em; padding-bottom:.8rem; margin-bottom:.8rem; border-bottom:1px solid #61827977 }
+.radio-canal i { position:relative; flex:1; height:2px; background:#496b63 }
+.radio-canal i::after { content:''; position:absolute; width:15%; height:4px; top:-1px; background:#b6ffe1; border-radius:2px; animation:radio-pulso 2.5s ease-in-out infinite alternate }
+@keyframes radio-pulso { from {left:0} to {left:85%} }
+@media(prefers-reduced-motion:reduce){.radio-canal i::after{animation:none;left:45%}}
 .historia-menu { display:grid; gap:.35rem; margin:0 0 .8rem }
 #abrir-historia { background:#824024; color:#fff3de; text-align:left; font-weight:700 }
 #historia[hidden],#historia [hidden] { display:none!important }

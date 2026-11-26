@@ -1,7 +1,9 @@
+import { crearSuspension, RUEDAS, GRAVEDAD_MARTE } from './rover-fisica.js'
 import { crearNave } from './historia-nave.js'
 import { crearPuenteJugable, transitablePuente, Z_INICIO_PUENTE, Z_FIN_CASCO } from './historia-puente.js'
 import { crearEsclusa } from './historia-esclusa.js'
 import { crearTerreno, MUNDO, SAGAN } from './historia-terreno.js'
+import { transmision } from './historia-radio.js'
 import { crearEstacionSagan } from './historia-sagan.js'
 
 // Everything is local to the wreck. No pointer lock, network requests or renderer ownership.
@@ -158,7 +160,7 @@ export function crearExploracion(T, scene, camera, renderer, ui={}) {
     const lente=new T.Mesh(new T.SphereGeometry(.09,10,8),new T.MeshBasicMaterial({color:0x9fe0ff}));lente.position.set(.78,3.1,-.72);rover.add(lente)
     for(const s of [-1,1]){const faro=new T.Mesh(new T.SphereGeometry(.14,10,8),new T.MeshBasicMaterial({color:0xffd9a0}));faro.position.set(s*.85,1.3,-1.92);rover.add(faro)}
     const geoRueda=new T.CylinderGeometry(.44,.44,.34,16),geoBuje=new T.CylinderGeometry(.16,.16,.38,10)
-    for(const [wx,wz] of [[-1.32,-1.25],[1.32,-1.25],[-1.32,0],[1.32,0],[-1.32,1.25],[1.32,1.25]]){
+    for(const [wx,wz] of RUEDAS){
       const g=new T.Group();g.position.set(wx,.5,wz);rover.add(g)
       const llanta=new T.Mesh(geoRueda,gris);llanta.rotation.z=Math.PI/2;g.add(llanta)
       const buje=new T.Mesh(geoBuje,negro);buje.rotation.z=Math.PI/2;g.add(buje)
@@ -168,16 +170,76 @@ export function crearExploracion(T, scene, camera, renderer, ui={}) {
   }
   let roverEstado='guardado',roverX=0,roverZ=-9,roverYaw=0,roverVel=0,conduciendo=false,miradaYaw=0,miradaPitch=-.08
   let llegadaSagan=false,panelesLimpios=false,encendidoIntentado=false,balizaConectada=false,comunicacionesActivas=false,kitReplegado=false
+  let turnoRadio=-1,actoFinalizado=false,demoCompletada=false,tormenta=false,tiempoRadio=0
+  const ojoRadio=new T.Vector3(),focoRadio=new T.Vector3()
+  function planoRadio(dt){
+    if(ui.reduced)return
+    tiempoRadio+=dt
+    const t=Math.min(tiempoRadio/2,1),giro=.25*Math.sin(tiempoRadio*.18)
+    const a=yaw+giro, bx=base.position.x,bz=base.position.z
+    camera.position.copy(ojoRadio).lerp(focoRadio.set(bx+Math.sin(a)*4,base.position.y+2.25,bz+Math.cos(a)*4),t*t*(3-2*t))
+    camera.lookAt(bx,base.position.y+1.35,bz)
+    mast.rotation.y+=dt*.5;dish.rotation.x=2.38+.16*Math.sin(mast.rotation.y*2)
+  }
+  function siguienteRadio(){
+    if(turnoRadio<0||disposed)return
+    turnoRadio++;mostrarTurno()
+  }
+  function mostrarTurno(){
+    if(turnoRadio===transmision.length){turnoRadio=-1;actoFinalizado=true;ui.radio?.(null);goals();targets();return}
+    if(turnoRadio===transmision.length-1){
+      pose();tormenta=true;scene.fog.color.setHex(0xb38361);scene.fog.density=.057
+      scene.background.copy(scene.fog.color);sky.visible=false;sun.intensity=.95
+      actualizarPolvo(0)
+    }
+    const [emisor,mensaje]=transmision[turnoRadio]
+    ui.radio?.({emisor,mensaje,numero:turnoRadio+1,total:transmision.length})
+  }
+  function actualizarPolvo(dt){
+    // Los granos cruzan continuamente un volumen alrededor del explorador, también en rover.
+    grains.visible=exteriorZone
+    if(!exteriorZone)return
+    const p=motesG.attributes.position
+    for(let i=0;i<p.count;i++){
+      let px=p.getX(i)+dt*(6+i%5);if(px>14)px-=28
+      p.setX(i,px)
+    }
+    p.needsUpdate=true;grains.material.size=.075;grains.position.set(x,y,z+15)
+  }
+  let ubicacionPathfinder='sagan',balizaRecuperada=false,balizaMontada=false
+  const sitios={pathfinder:{x:-4,z:-8},baliza:{x:4,z:-8}}
+  const marcas={}
+  for(const [id,{x:px,z:pz}] of Object.entries(sitios)){
+    const marca=mesh(new T.RingGeometry(.93,1.04,40),new T.MeshBasicMaterial({color:0x95e4c3,side:T.DoubleSide}),px,0,pz)
+    marca.name=`Soporte exterior · ${id}`;marca.rotation.x=-Math.PI/2;marca.visible=false;marcas[id]=marca
+  }
+  function enlaceOrbitalListo(){return ubicacionPathfinder==='exterior'&&balizaMontada}
+  function mostrarSoportes(){
+    for(const [id,{x:px,z:pz}] of Object.entries(sitios)){
+      marcas[id].position.y=height(px,pz)+.065
+      marcas[id].visible=actoFinalizado&&(id==='pathfinder'?ubicacionPathfinder==='transporte':balizaRecuperada&&!balizaMontada)
+    }
+  }
+  function estibarPathfinder(){
+    const llevaP=ubicacionPathfinder==='transporte',llevaB=hasKit&&!anchored
+    packed.visible=llevaB;carried.visible=!conduciendo&&(llevaB||llevaP);carga.visible=conduciendo&&llevaB
+    if(llevaP){if(conduciendo)estacion.trasladar(rover,0,1.91,1.07,.45)
+      else estacion.trasladar(carried,-.24,-.22,-.64,.13)}
+  }
+  function actualizarEnlaceExterior(){
+    comunicacionesActivas=balizaConectada=enlaceOrbitalListo()
+    actualizarLander();estibarPathfinder();mostrarSoportes()
+  }
   const alcanceRadio=12
   function balizaCercana(){return anchored&&assembled&&!unfolding&&Math.hypot(base.position.x-SAGAN.x,base.position.z-SAGAN.z)<=alcanceRadio}
-  function estadoBaliza(){return !hasKit?'en la nave':!anchored?(conduciendo?'a bordo del rover':'en mano'):!assembled?'trípode anclado':balizaConectada?'conectada a Pathfinder':balizaCercana()?'instalada junto a Pathfinder':'instalada en campo'}
-  function estadoRadio(){return comunicacionesActivas?'enlace con Tierra activo':balizaConectada?'baliza conectada · lista para transmitir':encendidoIntentado?'encendido local · sin enlace':panelesLimpios?'paneles limpios · apagada':'paneles cubiertos de polvo'}
+  function estadoBaliza(){return balizaMontada?'montada fuera de la nave':!hasKit?'en la nave':!anchored?(conduciendo?'a bordo del rover':'en mano'):!assembled?'trípode anclado':balizaConectada?'conectada a Pathfinder':balizaCercana()?'instalada junto a Pathfinder':'instalada en campo'}
+  function estadoRadio(){return enlaceOrbitalListo()?'estación exterior lista · diagnóstico en el puente':actoFinalizado&&(balizaRecuperada||ubicacionPathfinder!=='sagan')?'enlace interrumpido · traslado de la estación':comunicacionesActivas?'enlace con Tierra activo':balizaConectada?'baliza conectada · lista para transmitir':encendidoIntentado?'encendido local · sin enlace':panelesLimpios?'paneles limpios · apagada':'paneles cubiertos de polvo'}
   function actualizarLander(){estacion.telemetria({panelesLimpios,encendidoIntentado,balizaConectada,comunicacionesActivas})}
   const arriba=new T.Vector3(0,1,0),normalSuelo=new T.Vector3(),qAlinea=new T.Quaternion(),qGiro=new T.Quaternion()
   const esclusa=crearEsclusa(T,world,{hatch,door,placard,position:()=>({x,z}),notify:msg=>say('status',msg)})
   const lookDir=new T.Vector3(),candidate=new T.Vector3(),dropPoint=new T.Vector3(),handPoint=new T.Vector3()
   function placement(){
-    if(conduciendo||!exteriorZone||!hasKit||anchored||z> -6.5&&Math.abs(x)<4.5)return false
+    if(actoFinalizado||conduciendo||!exteriorZone||!hasKit||anchored||z> -6.5&&Math.abs(x)<4.5)return false
     camera.getWorldDirection(lookDir);if(lookDir.y>-.3)return false
     let d=(height(x,z)-camera.position.y)/lookDir.y
     for(let i=0;i<2;i++){candidate.copy(camera.position).addScaledVector(lookDir,d);d=(height(candidate.x,candidate.z)-camera.position.y)/lookDir.y}
@@ -191,19 +253,26 @@ export function crearExploracion(T, scene, camera, renderer, ui={}) {
   function say(type,msg){if(texts.get(type)!==msg){texts.set(type,msg);ui[type]?.(msg)}}
   function distanciaSagan(){return Math.hypot(x-SAGAN.x,z-SAGAN.z)}
   function rumboSagan(){const a=(Math.atan2(SAGAN.x-x,-(SAGAN.z-z))*180/Math.PI+360)%360;return ['norte','noreste','este','sureste','sur','suroeste','oeste','noroeste'][Math.round(a/45)%8]}
-  function telemetriaMision(){return {panelesLimpios,encendidoIntentado,balizaConectada,comunicacionesActivas,estadoBaliza:estadoBaliza(),estadoRadio:estadoRadio(),sitioBaliza:anchored?{x:dropPoint.x,z:dropPoint.z}:null}}
+  function telemetriaMision(){return {ubicacionPathfinder,balizaRecuperada,balizaMontada,regresoANave:actoFinalizado&&ubicacionPathfinder!=='sagan'&&balizaRecuperada&&!demoCompletada,enlaceOrbitalListo:enlaceOrbitalListo(),panelesLimpios,encendidoIntentado,balizaConectada,comunicacionesActivas,estadoBaliza:estadoBaliza(),estadoRadio:estadoRadio(),sitioBaliza:anchored?{x:dropPoint.x,z:dropPoint.z}:null}}
   function textoDistancia(){const d=distanciaSagan();return d>=1000?`${(d/1000).toFixed(1).replace('.',',')} km`:`${Math.round(d)} m`}
   function goals(){
     const chamber=Math.abs(x)<1.8&&z< -2.12&&z> -4.03
     let objetivo
     if(chamber)objetivo=esclusa.resumen()
+    else if(actoFinalizado){
+      if(demoCompletada)objetivo='Comunicación orbital establecida. Explora Marte libremente.'
+      else if(enlaceOrbitalListo())objetivo='Estación de superficie montada. Entra por la esclusa y usa la consola del puente.'
+      else if(ubicacionPathfinder==='sagan')objetivo='Recoge Pathfinder a pie en Sagan y repliega la baliza para el viaje.'
+      else if(!balizaRecuperada)objetivo='Repliega y recoge la baliza en Sagan. Puedes llevar ambos equipos en el rover.'
+      else if(Math.hypot(x,z+6)>22)objetivo=`Regresa con los equipos a la nave: ${Math.round(Math.hypot(x,z+6))} m hasta la rampa.`
+      else objetivo=`A pie, apunta al soporte exterior de ${ubicacionPathfinder!=='exterior'?'Pathfinder (oeste)':'la baliza (este)'}, junto a la rampa, y usa la acción de montaje.`
+    }else if(comunicacionesActivas)objetivo='Escucha la transmisión de Houston.'
     else if(!exteriorZone)objetivo='Puente de mando a proa · equipo en los bancos · esclusa a popa.'
-    else if(comunicacionesActivas)objetivo='Enlace con Tierra activo. Explora Sagan o vuelve a la nave.'
     else if(distanciaSagan()<24){
       if(conduciendo)objetivo='Baja del rover para trabajar en Pathfinder.'
       else if(!panelesLimpios)objetivo='Acércate a Pathfinder y limpia sus paneles solares.'
       else if(!encendidoIntentado)objetivo='Intenta encender Pathfinder con los paneles limpios.'
-      else if(balizaConectada)objetivo='Usa la radio de Pathfinder para establecer el enlace con Tierra.'
+      else if(balizaConectada)objetivo='Acércate a la baliza, apunta a su base y acciónala para llamar a Houston.'
       else if(balizaCercana())objetivo='Mira el lander y conecta la baliza a Pathfinder.'
       else if(anchored&&!assembled)objetivo='Acopla el mástil al trípode de la baliza.'
       else objetivo=anchored?'Recoge la baliza que dejaste en campo; su posición está en la tablet.':hasKit?`Mira al suelo y monta la baliza a ${alcanceRadio} m o menos de Pathfinder.`:'Trae el kit de baliza del banco EVA de la nave.'
@@ -212,28 +281,48 @@ export function crearExploracion(T, scene, camera, renderer, ui={}) {
     else if(!kitReplegado&&!conduciendo)objetivo='Mira suelo despejado para montar la baliza; podrás replegarla para el viaje.'
     else objetivo=`Lleva la baliza a Sagan: ${textoDistancia()} al ${rumboSagan()}. ${conduciendo?'Conduce con W/S y gira con A/D.':roverEstado==='guardado'?'Pulsa V para desplegar el rover.':'Sube al rover con V.'}`
     say('objective',objetivo)
-    say('inventory',[hasTablet?'Tablet · mapa':'',hasKit?`Baliza ${estadoBaliza()}`:'',roverEstado==='guardado'?'':'Rover desplegado',scanned?'Traje verificado':''].filter(Boolean).join('  /  ')||'Sin equipo recogido')}
-  const actions=[...esclusa.actions,{...puente.accion,run(){say('status',puente.diagnosticar())}},
+    say('inventory',[ubicacionPathfinder==='transporte'?`Pathfinder ${conduciendo?'en el rover':'en mano'}`:ubicacionPathfinder==='exterior'?'Pathfinder montado fuera de la nave':'',hasTablet?'Tablet · mapa':'',hasKit?`Baliza ${estadoBaliza()}`:'',roverEstado==='guardado'?'':'Rover desplegado',scanned?'Traje verificado':''].filter(Boolean).join('  /  ')||'Sin equipo recogido')}
+  const actions=[...esclusa.actions,{...puente.accion,run(){
+    const enlazada=enlaceOrbitalListo()
+    say('status',puente.diagnosticar(enlazada))
+    if(enlazada&&!demoCompletada){demoCompletada=true;ui.finDemo?.()}
+  }},
+    {id:'recogerPathfinder',get pt(){return [SAGAN.x,height(SAGAN.x,SAGAN.z)+1,SAGAN.z]},range:4.5,text:'Recoger Pathfinder',
+      active:()=>actoFinalizado&&!conduciendo&&ubicacionPathfinder==='sagan',
+      run(){ubicacionPathfinder='transporte';actualizarEnlaceExterior();say('status','Pathfinder asegurado para el traslado.')}},
+    {id:'recogerBaliza',get pt(){return [base.position.x,base.position.y+.72,base.position.z]},range:2.5,text:'Replegar y recoger baliza para la nave',
+      active:()=>actoFinalizado&&!conduciendo&&!balizaRecuperada,
+      run(){balizaRecuperada=true;anchored=assembled=false;base.visible=baseShade.visible=mast.visible=false;actualizarEnlaceExterior();say('status','Antena y batería aseguradas para el traslado.')}},
+    ...Object.entries(sitios).map(([id,{x:px,z:pz}])=>({id:`montar-${id}`,get pt(){return [px,height(px,pz)+.1,pz]},range:3.5,
+      text:`Montar ${id==='pathfinder'?'Pathfinder':'baliza'} fuera de la nave`,
+      active:()=>actoFinalizado&&exteriorZone&&!conduciendo&&(id==='pathfinder'?ubicacionPathfinder==='transporte':balizaRecuperada&&!balizaMontada),
+      run(){if(Math.abs(x-px)<.9&&Math.abs(z-pz)<.9){say('status','Apártate del soporte para montar el equipo sin quedar debajo.');return}
+        const h=height(px,pz)
+        if(id==='pathfinder'){ubicacionPathfinder='exterior';estacion.trasladar(world,px,h,pz,1)}
+        else{balizaMontada=anchored=assembled=true;dropPoint.set(px,h,pz);base.position.copy(dropPoint);base.scale.setScalar(1);mast.scale.y=1;baseShade.position.set(px,h+.029,pz);base.visible=baseShade.visible=mast.visible=true}
+        actualizarEnlaceExterior();say('status',enlaceOrbitalListo()?'Ambos equipos conectados. Comprueba el enlace orbital desde la consola del puente.':'Equipo montado. Aún falta su compañero para completar el enlace.')}
+    })),
     {id:'kit',pt:[1.53,1.66,-.94],range:1.67,text:'Recoger kit de baliza',active:()=>!hasKit,run(){hasKit=true;kit.visible=false;carried.visible=true;say('status','Llevas el trípode, el mástil y la batería. Busca suelo despejado fuera de la nave.')}},
     {id:'tablet',pt:[-1.53,1.54,-1.54],range:1.65,text:'Recoger tablet',active:()=>!hasTablet,run(){hasTablet=true;tablet.visible=false;ui.tablet?.(true);say('status','Tablet en mano: mapa de Ares Vallis con la estación Sagan marcada. Pulsa M para consultarlo.')}},
     {id:'scan',pt:[-1.53,1.6,-.96],range:1.65,text:'Usar escáner médico',active:()=>!scanned,run(){scanned=true;say('status','Presión del traje estable. Contusión leve en el hombro.')}},
-    {id:'pathfinder',get pt(){return [SAGAN.x,height(SAGAN.x,SAGAN.z)+1,SAGAN.z]},range:4.5,get text(){return !panelesLimpios?'Limpiar paneles solares':!encendidoIntentado?'Intentar encendido de Pathfinder':balizaConectada?'Establecer enlace con Tierra':balizaCercana()?'Conectar baliza a Pathfinder':'Comprobar alcance de la baliza'},
-      active:()=>llegadaSagan&&!conduciendo&&!comunicacionesActivas,
+    {id:'pathfinder',get pt(){return [SAGAN.x,height(SAGAN.x,SAGAN.z)+1,SAGAN.z]},range:4.5,get text(){return !panelesLimpios?'Limpiar paneles solares':!encendidoIntentado?'Intentar encendido de Pathfinder':balizaCercana()?'Conectar baliza a Pathfinder':'Comprobar alcance de la baliza'},
+      active:()=>!actoFinalizado&&llegadaSagan&&!conduciendo&&!balizaConectada&&!comunicacionesActivas,
       run(){let mensaje
          if(!panelesLimpios){panelesLimpios=true;mensaje='Retiras el polvo de los paneles solares. Ya puedes intentar el encendido.'}
          else if(!encendidoIntentado){encendidoIntentado=true;mensaje='La batería responde, pero Pathfinder no llega a Tierra por sí solo. Necesita tu baliza.'}
          else if(!balizaCercana()){mensaje=`No se detecta repetidor. Monta el trípode y su mástil a ${alcanceRadio} m o menos del lander.`}
-         else if(!balizaConectada){balizaConectada=true;mensaje='Pathfinder reconoce la baliza. Canal de transmisión preparado.'}
-         else{comunicacionesActivas=true;mensaje='Enlace con Tierra establecido. Pathfinder transmite de nuevo desde Ares Vallis.'}
+         else{balizaConectada=true;mensaje='Pathfinder reconoce la baliza. Acciona la baliza para llamar a Houston.'}
          actualizarLander();say('status',mensaje)}},
-    {id:'replegar',get pt(){return [base.position.x,base.position.y+.72,base.position.z]},range:2.5,text:'Replegar y recoger baliza',active:()=>anchored&&assembled&&!unfolding,
-       run(){const desconectada=balizaConectada;anchored=assembled=balizaConectada=comunicacionesActivas=false;kitReplegado=true;base.visible=baseShade.visible=mast.visible=false;carried.visible=true;actualizarLander();say('status',desconectada?'Baliza recogida. Pathfinder queda sin enlace con Tierra.':'Trípode y mástil replegados. Puedes llevar la baliza en el rover.')}},
+    {id:'transmitir',get pt(){return [base.position.x,base.position.y+.72,base.position.z]},range:2.5,text:'Accionar baliza · llamar a Houston',active:()=>balizaConectada&&!comunicacionesActivas&&!conduciendo,
+      run(){comunicacionesActivas=true;actualizarLander();keys.clear();move(0,0);drag=null;sprinting=false;ojoRadio.copy(camera.position);turnoRadio=0;mostrarTurno()}},
+    {id:'replegar',get pt(){return [base.position.x,base.position.y+.72,base.position.z]},range:2.5,text:'Replegar y recoger baliza',active:()=>!actoFinalizado&&anchored&&assembled&&!unfolding&&!balizaConectada,
+       run(){anchored=assembled=false;kitReplegado=true;base.visible=baseShade.visible=mast.visible=false;carried.visible=true;actualizarLander();say('status','Trípode y mástil replegados. Puedes llevar la baliza en el rover.')}},
     {id:'rover',get pt(){return [roverX,floorY(roverX,roverZ)+1.15,roverZ]},range:3.4,text:'Subir al rover',active:()=>roverEstado==='desplegado',run(){subirRover()}},
     {id:'relay',get pt(){return [base.position.x,base.position.y+.55,base.position.z]},range:2.2,text:'Acoplar mástil y conectar batería',active:()=>anchored&&placing===0&&!assembled,run(){assembled=true;unfolding=.001;mast.visible=true;say('status','Mástil conectado. Baliza local activa, sin enlace orbital.')}}
   ]
   const plant={text:'Anclar trípode aquí',run(){if(!placement())return;anchored=true;placing=.001;carried.visible=false;base.visible=baseShade.visible=true;guide.visible=false;dropPoint.copy(candidate);base.position.copy(candidate);baseShade.position.set(candidate.x,candidate.y+.029,candidate.z);base.rotation.y=yaw;packed.getWorldPosition(handPoint);base.scale.setScalar(.44);say('status','Base anclada. Falta acoplar el mástil y conectar la batería.')}}
   const dir=new T.Vector3(),way=new T.Vector3()
-  function targets(){if(conduciendo){target=null;guide.visible=false;say('prompt','');return}camera.getWorldDirection(dir);let best=-1;target=null;for(const a of actions){if(!a.active())continue;way.set(...a.pt).sub(camera.position);const d=way.length(),dot=dir.dot(way.normalize());if(d>a.range||dot<.77)continue;const score=dot-.085*d;if(score>best){best=score;target=a}}
+  function targets(){if(conduciendo||turnoRadio>=0){target=null;guide.visible=false;say('prompt','');return}camera.getWorldDirection(dir);let best=-1;target=null;for(const a of actions){if(!a.active())continue;way.set(...a.pt).sub(camera.position);const d=way.length(),dot=dir.dot(way.normalize());if(d>a.range||dot<.77)continue;const score=dot-.085*d;if(score>best){best=score;target=a}}
     guide.visible=!target&&placement();if(guide.visible){guide.position.copy(candidate);guide.position.y+=.026;target=plant}
     say('prompt',target?target.text:'')}
   function interact(){if(disposed||ui.paused?.())return;targets();if(target){target.run();goals();targets()}}
@@ -258,24 +347,30 @@ export function crearExploracion(T, scene, camera, renderer, ui={}) {
     if(!estacion.permite(px,pz,radio))return false
     return true
   }
+  const suspension=crearSuspension(floorY),dinamica=suspension.estado
+  // Telemetría de la suspensión: altura del chasis sobre el terreno y ruedas en contacto.
+  function telemetriaRover(){return {roverAltura:dinamica.y,roverContactos:roverEstado==='guardado'?6:dinamica.contactos,roverVelVertical:dinamica.vy,roverEnVuelo:roverEstado!=='guardado'&&dinamica.contactos<6}}
   function poseRover(dt){
-    const suelo=floorY(roverX,roverZ)
-    rover.position.set(roverX,suelo,roverZ)
-    terreno.normal(roverX,roverZ,normalSuelo)
+    rover.position.set(roverX,dinamica.y,roverZ)
+    normalSuelo.set(-dinamica.lateral,1,-dinamica.longitudinal).normalize()
     qAlinea.setFromUnitVectors(arriba,normalSuelo)
     qGiro.setFromAxisAngle(arriba,roverYaw)
-    rover.quaternion.copy(qAlinea).multiply(qGiro)
-    for(const rueda of ruedas)rueda.rotation.x+=roverVel*dt/.44
+    rover.quaternion.copy(qGiro).multiply(qAlinea)
+    ruedas.forEach((rueda,i)=>{rueda.position.y=.44+dinamica.recorrido[i];rueda.rotation.x-=roverVel*dt/.44})
   }
-  function pose(){
+  let altoCamara=null
+  function pose(dt=1/60){
     if(conduciendo){
       const ang=roverYaw+miradaYaw,dist=8.2,alto=3.6
       const cx=roverX+Math.sin(ang)*dist,cz=roverZ+Math.cos(ang)*dist
-      const suelo=Math.max(floorY(cx,cz),floorY(roverX,roverZ))
-      camera.position.set(cx,suelo+alto,cz)
+      // La cámara sigue al chasis con muelle suave: no se pega al suelo ni salta con cada bache.
+      const objetivo=Math.max(dinamica.y+alto,floorY(cx,cz)+1.35)
+      altoCamara=altoCamara===null?objetivo:altoCamara+(objetivo-altoCamara)*(1-Math.exp(-9*Math.max(dt,1/120)))
+      camera.position.set(cx,altoCamara,cz)
       camera.rotation.order='YXZ'
-      camera.lookAt(roverX,floorY(roverX,roverZ)+1.4+miradaPitch*3,roverZ)
+      camera.lookAt(roverX,dinamica.y+1.4+miradaPitch*3,roverZ)
     }else{
+      altoCamara=null
       camera.position.set(x,y+1.51+(walking?Math.sin(bob)*.018:0),z)
       camera.rotation.order='YXZ';camera.rotation.set(pitch,yaw,0,'YXZ')
     }
@@ -283,27 +378,38 @@ export function crearExploracion(T, scene, camera, renderer, ui={}) {
   }
   function actualizarRover(r,f,dt,turbo){
     if(!conduciendo)return
-    roverVel+=f*(turbo?16:9)*dt
-    if(Math.abs(f)<.04)roverVel*=Math.exp(-1.3*dt)
-    roverVel=clamp(roverVel,-5,turbo?26:18)
-    const sentido=roverVel<-.2?-1:1
-    roverYaw-=r*dt*(.9+.6*Math.min(1,Math.abs(roverVel)/8))*sentido
-    const nx=roverX-Math.sin(roverYaw)*roverVel*dt,nz=roverZ-Math.cos(roverYaw)*roverVel*dt
-    if(allowed(nx,nz,1.3)){roverX=nx;roverZ=nz}else roverVel*=.1
-    x=roverX;z=roverZ;y=floorY(x,z)
+    const pasos=Math.ceil(dt*120)
+    for(let i=0;i<pasos;i++){
+      const h=dt/pasos,traccion=dinamica.contactos/6
+      if(traccion){
+        const pendiente=dinamica.longitudinal
+        roverVel+=(f*(turbo?16:9)+GRAVEDAD_MARTE*pendiente/Math.hypot(1,pendiente))*h*traccion
+        if(Math.abs(f)<.04)roverVel*=Math.exp(-1.3*h*traccion)
+        roverVel=clamp(roverVel,-5,turbo?26:18)
+        const sentido=roverVel<-.2?-1:1
+        roverYaw-=r*h*(.9+.6*Math.min(1,Math.abs(roverVel)/8))*sentido*traccion
+      }
+      const nx=roverX-Math.sin(roverYaw)*roverVel*h,nz=roverZ-Math.cos(roverYaw)*roverVel*h
+      if(allowed(nx,nz,1.3)){roverX=nx;roverZ=nz}else roverVel*=.1
+      suspension.avanzar(roverX,roverZ,roverYaw,h)
+    }
+    x=roverX;z=roverZ;y=dinamica.y
   }
   function subirRover(){
-    conduciendo=true;roverEstado='conduciendo';x=roverX;z=roverZ;y=floorY(x,z);miradaYaw=0;miradaPitch=-.08
-    carried.visible=false;ui.vehiculo?.(roverEstado)
+    suspension.reiniciar(roverX,roverZ,roverYaw);poseRover(0)
+    conduciendo=true;roverEstado='conduciendo';x=roverX;z=roverZ;y=dinamica.y;airborne=false;walking=false;miradaYaw=0;miradaPitch=-.08
+    carried.visible=false;estibarPathfinder();ui.vehiculo?.(roverEstado)
     say('status','Rover en marcha. W/S acelerar, A/D girar, Shift turbo, V bajar.')
   }
   function bajarRover(){
+    if(!dinamica.contactos){say('status','Espera a que las ruedas vuelvan a tocar el suelo para bajar.');return}
+    roverVel=0
     const pruebas=[[Math.cos(roverYaw)*2.6,-Math.sin(roverYaw)*2.6],[-Math.cos(roverYaw)*2.6,Math.sin(roverYaw)*2.6],[Math.sin(roverYaw)*3.2,Math.cos(roverYaw)*3.2]]
     let destino=null
     for(const [dx,dz] of pruebas){const bx=roverX+dx,bz=roverZ+dz;if(allowed(bx,bz,0)){destino=[bx,bz];break}}
     if(!destino)destino=[roverX,roverZ]
     x=destino[0];z=destino[1];y=floorY(x,z);conduciendo=false;roverEstado='desplegado';yaw=roverYaw;pitch=-.06;miradaYaw=0
-    carried.visible=hasKit&&!anchored;ui.vehiculo?.(roverEstado)
+    carried.visible=hasKit&&!anchored;estibarPathfinder();ui.vehiculo?.(roverEstado)
     say('status','Has bajado del rover. Pulsa V a su lado para volver a conducir.')
   }
   function vehicle(){
@@ -330,6 +436,11 @@ export function crearExploracion(T, scene, camera, renderer, ui={}) {
     dt=clamp(Number(dt)||0,0,.08)
     terreno.actualizar(x,z)
     estacion.update(dt,{x,z})
+    if(turnoRadio>=0){
+      if(tormenta)actualizarPolvo(dt)
+      else planoRadio(dt)
+      return
+    }
     if(ui.paused?.()===true){keys.clear();move(0,0);sprinting=false;drag=null;pose();return}
     esclusa.update(dt);const cycle=esclusa.estado().ciclo
     if(cycle!==lastCycle&&cycle==='despresurizando')ventTime=0;lastCycle=cycle
@@ -349,20 +460,21 @@ export function crearExploracion(T, scene, camera, renderer, ui={}) {
       if(airborne){vy-=11.5*dt;y+=vy*dt;if(y<=suelo){y=suelo;vy=0;airborne=false}}else y=suelo
     }
     const inHull=z>=-3.98&&z<Z_FIN_CASCO&&Math.abs(x)<1.97;if(exteriorZone===inHull){exteriorZone=!inHull;ui.exterior?.(exteriorZone)}
-    sky.position.set(x,0,z);windTime+=dt;grains.position.x=Math.sin(windTime*.47)*1.57;grains.position.y=Math.sin(windTime*1.63)*.048
+    sky.position.set(x,0,z);windTime+=dt;if(tormenta)actualizarPolvo(dt);else {grains.position.x=Math.sin(windTime*.47)*1.57;grains.position.y=Math.sin(windTime*1.63)*.048}
     if(!outside && z< -6.08){outside=true;say('status','Ares Vallis. Tus botas tocan Marte. La nave ha quedado a tu espalda; Sagan está a 2 km al sureste.');goals()}
     if(!llegadaSagan && exteriorZone && distanciaSagan()<18){llegadaSagan=true;say('status','Estación Científica Sagan. El Pathfinder y la Sojourner siguen aquí desde 1997.');goals()}
     if(roverEstado!=='guardado')poseRover(dt)
-    pose();carried.position.copy(camera.position);carried.quaternion.copy(camera.quaternion);carried.updateMatrixWorld(true)
+    pose(dt);carried.position.copy(camera.position);carried.quaternion.copy(camera.quaternion);carried.updateMatrixWorld(true)
     if(placing){placing=Math.min(1,placing+dt*1.7);base.position.lerpVectors(handPoint,dropPoint,placing);base.scale.setScalar(.44+.56*placing);if(placing===1)placing=0}
     if(unfolding){unfolding=Math.min(1,unfolding+dt*1.3);mast.scale.y=.15+.85*unfolding;if(unfolding===1)unfolding=0}
     goals();targets()
-    ui.position?.({x,z,y,rumbo:conduciendo?roverYaw:yaw,pitch,conduciendo,caminando:walking,saltando:airborne,velocidad:conduciendo?roverVel:(walking?(sprinting||keys.has('ShiftLeft')||keys.has('ShiftRight')?4.8:2.85):0),roverEstado,tablet:hasTablet,llegadaSagan,...telemetriaMision(),distanciaSagan:distanciaSagan(),direccionSagan:rumboSagan(),exterior:outside})
+    ui.position?.({x,z,y,rumbo:conduciendo?roverYaw:yaw,pitch,conduciendo,caminando:walking,saltando:airborne,velocidad:conduciendo?roverVel:(walking?(sprinting||keys.has('ShiftLeft')||keys.has('ShiftRight')?4.8:2.85):0),roverEstado,tablet:hasTablet,llegadaSagan,...telemetriaMision(),...telemetriaRover(),distanciaSagan:distanciaSagan(),direccionSagan:rumboSagan(),exterior:outside})
   }
   function on(el,type,fn,opts){if(!el?.addEventListener)return;el.addEventListener(type,fn,opts);listeners.push(()=>el.removeEventListener(type,fn,opts))}
   const keyset=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyE','Space','ShiftLeft','ShiftRight','KeyV','KeyM'])
   on(globalThis.window,'keydown',e=>{
     if(e.metaKey||e.ctrlKey||e.altKey||!keyset.has(e.code)||e.target?.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(e.target?.tagName))return
+    if(turnoRadio>=0)return // El diálogo conserva los controles nativos del botón.
     e.preventDefault()
     if(ui.paused?.()===true){if(e.code==='KeyM'&&!e.repeat)ui.mapa?.();return}
     if(e.code==='KeyE'){if(!e.repeat)interact()}
@@ -384,6 +496,6 @@ export function crearExploracion(T, scene, camera, renderer, ui={}) {
     estacion.dispose();terreno.dispose()
     scene.remove(world);scene.background=old.bg;scene.fog=old.fog;camera.near=old.near;camera.far=old.far;camera.fov=old.fov;camera.updateProjectionMatrix()
     const gs=new Set(),ms=new Set(),ts=new Set();world.traverse(o=>{if(o.geometry&&!o.isSprite)gs.add(o.geometry);if(o.material)for(const m of [].concat(o.material)){ms.add(m);if(m.map)ts.add(m.map)}if(o.isInstancedMesh)o.dispose()});gs.forEach(g=>g.dispose());ms.forEach(m=>m.dispose());ts.forEach(t=>t.dispose())}
-  function estado(){return {x,z,y,yaw,outside,exteriorZone,hasTablet,rover:roverEstado,conduciendo,airborne,llegadaSagan,...telemetriaMision(),distanciaSagan:distanciaSagan()}}
-  return {update,dispose,interact,move,look,sprint,jump,vehicle,mapa,estado}
+  function estado(){return {x,z,y,yaw,pitch,outside,exteriorZone,actoFinalizado,tormenta,turnoRadio,hasTablet,rover:roverEstado,conduciendo,airborne,llegadaSagan,...telemetriaMision(),...telemetriaRover(),distanciaSagan:distanciaSagan()}}
+  return {update,dispose,interact,move,look,sprint,jump,vehicle,mapa,estado,siguienteRadio,enlaceOrbitalListo}
 }

@@ -68,6 +68,7 @@
     <p class="menu-marca"><span>APEX / MARS</span><small>Globo de Marte</small></p>
     <div class="menu-lista">
       <button type="button" data-menu="iniciar" aria-pressed="false"><b>Iniciar partida</b><small>Monte Olimpo</small></button>
+      <button type="button" data-guia-controles aria-haspopup="dialog" aria-controls="guia-controles"><b>Controles</b><small>Cómo moverse y jugar</small></button>
       <button type="button" data-menu="opciones" aria-pressed="false"><b>Opciones</b><small>Cráter Jezero</small></button>
       <button type="button" data-menu="globo" aria-pressed="false"><b>Ver el globo</b><small>Marte completo</small></button>
       <button type="button" data-menu="creditos" aria-pressed="false"><b>Créditos</b><small>Valles Marineris</small></button>
@@ -75,7 +76,7 @@
     <section id="menu-opciones" hidden aria-label="Opciones">
       <label><input id="opcion-sonido" type="checkbox"> Sonidos</label>
       <label><input id="opcion-ciencia" type="checkbox"> Imágenes científicas</label>
-      <label><input id="opcion-rumbo" type="checkbox"> Flecha de rumbo a Sagan</label>
+      <label><input id="opcion-rumbo" type="checkbox"> Flecha de rumbo al destino de misión</label>
       <button type="button" id="menu-volver">Volver a los destinos</button>
     </section>
     <section id="menu-creditos" hidden aria-label="Créditos"></section>
@@ -93,6 +94,19 @@
       <button id="historia-salir" type="button">Volver al globo</button>
     </header>
     <div id="historia-estado" role="status"></div>
+    <dialog id="fin-demo" aria-labelledby="fin-demo-titulo" aria-describedby="fin-demo-pregunta">
+      <small>APEX–04 / DIAGNÓSTICO DEL PUENTE</small>
+      <p class="fin-demo-enlace">● Comunicación orbital establecida</p>
+      <h2 id="fin-demo-titulo">Fin de la demo</h2>
+      <p id="fin-demo-pregunta">¿Quieres seguir explorando Marte con la estación en servicio?</p>
+      <button id="fin-demo-explorar" type="button" autofocus>Seguir explorando</button>
+      <button id="fin-demo-salir" type="button">Terminar y volver al globo</button>
+    </dialog>
+    <dialog id="radio-acto" aria-labelledby="radio-emisor" aria-describedby="radio-mensaje">
+      <div class="radio-canal" aria-hidden="true"><span>ARES VALLIS</span><i></i><span>TIERRA</span></div>
+      <small id="radio-turno"></small><h2 id="radio-emisor"></h2><p id="radio-mensaje" aria-live="polite"></p>
+      <button id="radio-seguir" type="button">Continuar</button>
+    </dialog>
     <section id="eva" aria-label="Exploración en primera persona" hidden>
       <aside class="eva-mision"><span>TRAJE · OBC / 01</span><p id="eva-objetivo"></p><small id="eva-equipo"></small></aside>
       <i class="eva-punto" aria-hidden="true"></i>
@@ -109,9 +123,9 @@
         <p class="tablet-id">APEX / CARTOGRAFÍA DE CAMPO</p><h2 id="tablet-titulo">Mapa de Ares Vallis</h2>
         <canvas id="tablet-carta" width="720" height="480" aria-label="Mapa orientado al norte: nave, explorador y estación Sagan"></canvas>
         <div class="tablet-zoom"><button id="tablet-alejar" type="button" aria-label="Alejar el mapa">−</button><button id="tablet-acercar" type="button" aria-label="Acercar el mapa">+</button></div>
-        <p class="tablet-leyenda"><span>▲ Tu posición</span><span>□ Nave</span><span>◆ Sagan</span><span class="tablet-escala" id="tablet-escala"></span></p>
+        <p class="tablet-leyenda" id="tablet-local-leyenda"><span>▲ Tu posición</span><span>□ Nave</span><span>◆ Sagan</span><span class="tablet-escala" id="tablet-escala"></span></p>
         <p id="tablet-lectura"></p><small>Estación científica Carl Sagan · Mars Pathfinder y Sojourner · mapa norte-arriba</small>
-        <footer><button id="tablet-ruta" type="button">Centrar en Sagan</button><button id="tablet-cerrar" type="button">Cerrar mapa</button></footer>
+        <p id="tablet-capa" aria-live="polite"></p><footer><button id="tablet-planeta" type="button" aria-pressed="false">Marte completo</button><button id="tablet-ruta" type="button">Centrar en Sagan</button><button id="tablet-cerrar" type="button">Cerrar mapa</button></footer>
       </dialog>
       <p class="eva-ayuda"><b>WASD</b> mover · <b>Arrastrar</b> mirar · <b>E</b> usar · <b>Shift</b> correr · <b>Espacio</b> saltar · <b>V</b> vehículo · <b>M</b> mapa</p>
       <p class="eva-ayuda-tactil">Mueve el mando para caminar. Arrastra el paisaje para mirar.</p>
@@ -130,6 +144,7 @@
         <h2 id="pausa-titulo">Partida en pausa</h2>
         <nav class="pausa-lista" aria-label="Menú de pausa">
           <button id="pausa-continuar" type="button">Continuar</button>
+          <button type="button" data-guia-controles aria-haspopup="dialog" aria-controls="guia-controles">Controles</button>
           <button id="pausa-opciones-boton" type="button">Opciones</button>
           <button id="pausa-creditos-boton" type="button">Créditos</button>
           <button id="pausa-globo" type="button">Volver al globo y menú</button>
@@ -137,13 +152,27 @@
         <section id="pausa-opciones" hidden aria-label="Opciones de la partida">
           <label><input id="pausa-sonido" type="checkbox"> Sonidos</label>
           <label><input id="pausa-ciencia" type="checkbox"> Imágenes científicas</label>
-          <label><input id="pausa-rumbo" type="checkbox"> Flecha de rumbo a Sagan</label>
+          <label><input id="pausa-rumbo" type="checkbox"> Flecha de rumbo al destino de misión</label>
           <button id="pausa-opciones-volver" type="button">Volver al menú de pausa</button>
         </section>
         <section id="pausa-creditos" hidden aria-label="Créditos"></section>
       </div>
     </section>
   </section>
+  <dialog id="guia-controles" aria-labelledby="guia-titulo">
+    <header><h2 id="guia-titulo" tabindex="-1" autofocus>Guía de controles</h2><form method="dialog"><button type="submit">Cerrar guía</button></form></header>
+    <h3>A pie</h3>
+    <p><kbd>W</kbd> y <kbd>S</kbd> avanzan y retroceden; <kbd>A</kbd> y <kbd>D</kbd> mueven a los lados. Arrastra la vista para mirar. También puedes avanzar con ↑, retroceder con ↓ y girar con ← o →.</p>
+    <p>Mantén <kbd>Shift</kbd> para correr y pulsa <kbd>Espacio</kbd> para saltar. Para usar una consola o recoger equipo, acércate, apunta al objeto y pulsa <kbd>E</kbd> cuando aparezca la acción.</p>
+    <h3>Tablet y rover</h3>
+    <p>Recoge la tablet del banco EVA. Usa <kbd>M</kbd> para abrir o cerrar el mapa. Ya en el exterior, pulsa <kbd>V</kbd> en un lugar despejado para desplegar el rover y subir.</p>
+    <p>Conduce con <kbd>W</kbd>/<kbd>S</kbd>, gira con <kbd>A</kbd>/<kbd>D</kbd> y mantén <kbd>Shift</kbd> para el turbo. Usa <kbd>V</kbd> para bajar o para volver a subir junto al rover.</p>
+    <h3>Pantalla táctil y pausa</h3>
+    <p>Usa el mando para moverte y arrastra el paisaje para mirar. Toca la acción que aparece al apuntar. Los botones permiten correr, saltar y, cuando estén disponibles, consultar la tablet o usar el vehículo. En exploración, <strong>Menú</strong> o <kbd>Esc</kbd> abre la pausa; <strong>Continuar</strong> vuelve al juego.</p>
+    <h3>Globo y vuelo libre</h3>
+    <p>En el globo, arrastra para navegar y usa la rueda o pellizca para acercarte. En vuelo, <kbd>W</kbd>/<kbd>S</kbd> inclinan el morro, <kbd>A</kbd>/<kbd>D</kbd> giran y <kbd>R</kbd>/<kbd>F</kbd> ajustan el empuje. Despega manteniendo <kbd>R</kbd> y <kbd>W</kbd>. En pantalla táctil, mantén <strong>+</strong> y <strong>↑</strong>.</p>
+    <p><kbd>B</kbd> frena, <kbd>C</kbd> centra la vista, <kbd>P</kbd> pausa o reanuda y <kbd>Esc</kbd> sale del vuelo.</p>
+  </dialog>
   <section id="vuelo-panel" hidden aria-labelledby="titulo-vuelo">
     <svg class="vuelo-reticula" viewBox="0 0 160 64" aria-hidden="true" focusable="false">
       <path d="M2 32h38l8 8h13m97-8h-38l-8 8H99M80 4v13m0 30v13M69 32l11-8 11 8-11 8Z" />

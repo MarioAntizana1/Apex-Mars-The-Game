@@ -1,3 +1,7 @@
+import { conectarGuiaControles } from './guia-controles.js'
+
+conectarGuiaControles(document.querySelector('#guia-controles'), document.querySelectorAll('[data-guia-controles]'))
+
 const controles = document.querySelector('#controles')
 const barra = controles.querySelector('summary')
 const compacto = matchMedia('(max-width: 42rem), (pointer: coarse)')

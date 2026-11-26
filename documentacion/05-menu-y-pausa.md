@@ -3,12 +3,26 @@
 ## Menú de inicio (globo)
 
 El menú aparece **abajo a la izquierda** sobre el globo de Marte al cargar la
-página. Es una tarjeta de cristal oscuro con cuatro destinos:
+página. Es una tarjeta de cristal oscuro con cinco botones:
 
 1. **Iniciar partida** — Monte Olimpo.
-2. **Opciones** — Cráter Jezero.
-3. **Ver el globo** — Marte completo.
-4. **Créditos** — Valles Marineris.
+2. **Controles** — guía de controles completa (ver abajo).
+3. **Opciones** — Cráter Jezero.
+4. **Ver el globo** — Marte completo.
+5. **Créditos** — Valles Marineris.
+
+### Guía de controles
+
+**Controles** abre el mismo `<dialog>` (`#guia-controles`) desde el menú de inicio
+y desde el de pausa, para que no haya que adivinar las teclas. Recoge a pie,
+tablet y rover, vuelo libre y mandos táctiles. La guía:
+
+- no cambia el estado de la partida: la pausa sigue abierta debajo;
+- detiene la propagación de `M`, `E`, `Espacio` y `Esc` mientras está abierta, de
+  modo que leer no mueve al personaje ni cierra la pausa;
+- al cerrarse devuelve el foco al botón que la abrió.
+- `guia-controles.js` contiene la lógica y `guia-controles.test.mjs` comprueba
+  ambos accesos, el foco y el aislamiento de los atajos.
 
 ### Vistas previas
 
@@ -31,6 +45,8 @@ vuela al destino **sin arrancar el sobrevuelo**:
   flecha de rumbo) y lanza un **sobrevuelo de Jezero** en dos tramos:
   (77,18, 18,46, 3,2 km) → (77,86, 18,43, 2,8 km), 5 s + 7 s.
 - **Ver el globo**: vuelve a Marte completo; el menú sigue visible.
+- **Controles**: abre la guía de controles sin cambiar de vista ni empezar la
+  partida.
 - **Créditos**: abre los créditos y lanza un **sobrevuelo de Valles Marineris**
   en dos tramos: (−98,−16, 130 km) → (−60,−3, 110 km), 6 s + 8 s.
 - **Volver a los destinos** (en los paneles) o **Volver** devuelven la cámara a
@@ -82,7 +98,8 @@ pantalla completa:
 - fondo oscuro con **desenfoque** (`backdrop-filter: blur(12px)`) y el panel de
   cristal con `blur(24px) saturate(1.25)`;
 - título **Partida en pausa**;
-- **Continuar**, **Opciones**, **Créditos**, **Volver al globo y menú**.
+- **Continuar**, **Controles**, **Opciones**, **Créditos**, **Volver al globo y
+  menú**.
 
 Mientras está abierto, la simulación se pausa (`ui.paused()`), el viento, los
 pasos y el motor se silencian y el foco queda en **Continuar**. `Esc` cierra;
@@ -109,6 +126,31 @@ cerrar la historia, llama a `campaign.escape?.()`:
 
 El botón **Saltar prólogo**, **Volver al globo** y los controles de la barra se
 mantienen.
+
+## Final de la demo
+
+Al consultar el diagnóstico del puente con Pathfinder y la baliza ya montados
+fuera de la nave, la escena abre `#fin-demo`:
+
+- `showModal` con fundido a negro (`::backdrop` animado) y aparición posterior del
+  texto, ambos en CSS; con `prefers-reduced-motion` no hay animación;
+- título **Fin de la demo** y la pregunta de si se quiere seguir explorando;
+- **Seguir explorando** cierra el diálogo, devuelve el foco al canvas y la partida
+  continúa con el objetivo “Comunicación orbital establecida”;
+- **Terminar y volver al globo** pulsa *Volver al globo*, cerrando la historia y
+  mostrando el menú de inicio;
+- mientras está abierto, `ui.paused()` devuelve `true` (la simulación no avanza),
+  `Esc` no lo cierra y las teclas no llegan a la escena; el diagnóstico no vuelve
+  a abrirlo una segunda vez.
+- `fin-demo.js` contiene la lógica y `fin-demo.test.mjs` comprueba el marcado, la
+  animación, las dos salidas y el cableado con la escena.
+
+![Cierre de la demo](imagenes/fin-demo.png)
+
+![Guía de controles](imagenes/guia-controles.png)
+
+Ambas capturas se tomaron en Edge headless con los diálogos abiertos sobre la
+página real (historia visible simulada desde CDP).
 
 ## Flujo completo
 

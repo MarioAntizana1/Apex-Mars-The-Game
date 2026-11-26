@@ -150,7 +150,7 @@ entregó `menu.js` y `menu.css`, que se revisaron e integraron.
 
 ## Verificación
 
-- **39 pruebas** en Node; todas pasan.
+- **56 pruebas** en Node; todas pasan.
 - Comprobación visual con Edge headless + CDP: cabina, terreno real, juntas entre
   sectores, horizonte, bloques de roca, Sagan, rover, mapa y pausa. Capturas en
   `documentacion/imagenes/`.

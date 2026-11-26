@@ -23,33 +23,39 @@ adaptado al ancho de la pantalla. Mientras está abierto:
 ## Contenido del mapa
 
 Está orientado **norte arriba** (`−z` arriba, `+x` a la derecha), siempre
-independientemente de hacia dónde mire la cámara.
+independientemente de hacia dónde mire la cámara, y **el sur queda abajo**: el
+mapa dibuja un arco con la letra `NORTE` arriba y `SUR` abajo.
 
+- **Relieve dibujado**: tres capas de sombreado hipsométrico generadas con
+  `herramientas/cartas-tablet.py` a partir de los DEM locales
+  (`datos/cartas/marte.webp`, `regional.webp` y `ares.webp`). El planisferio usa
+  el mosaico MOLA global; la capa regional cubre ±24,8 km con el MOLA de 10 km por
+  muestra; y la capa de detalle usa el DTM HiRISE del sitio (7 × 16 km). La luz
+  viene del noroeste y se combina con una rampa de color por altura.
+- **Mapa planetario 2D**: el botón **Marte completo** alterna entre el mapa local
+  y un planisferio con la **posición actual** del jugador marcada en Ares Vallis,
+  los polos norte y sur rotulados y la escala global. Volver al mapa local restaura
+  la leyenda, el zoom y el botón de centrado.
 - **Cuadrícula real**: líneas de latitud y longitud calculadas a partir del
   origen real del impacto (`ORIGEN.lon = 326,7576`, `lat = 19,164`) y de las
   escalas `GEO` (`55.977 m/°` en longitud, `59.252 m/°` en latitud). El paso se
   adapta al zoom (0,002° a 0,5°) para que las etiquetas no se solapen.
-- **Rectángulo de detalle HiRISE**: el área de 7 × 16 sectores de 1 km que
-  corresponde al DTM real; se dibuja con relleno cálido y la etiqueta
-  `DETALLE HiRISE · 1 m`.
-- **Límite del mundo**: cuadrado de ±24 km con línea discontinua; el jugador no
-  puede salir de él.
 - **NAVE**: cuadrado en `(0, 0)`.
 - **SAGAN**: rombo cian en `(1200, 1600)`; si queda fuera de la vista se pega al
   borde y se etiqueta.
+- **BALIZA**: punto naranja cuando la baliza está instalada en el campo.
 - **TÚ**: triángulo amarillo con halo, orientado al rumbo real del jugador o del
   rover. Se dibuja el último para que no lo tapen las demás marcas.
 - **Escala**: barra de 100 m a 25 km según el zoom y texto `1 km ≈ N px`.
-- **Brújula**: `N` arriba a la derecha.
 - **Lectura**: posición en latitud/longitud, altura relativa, estado (a pie,
-  parado, rover), distancia y rumbo a Sagan, y escala.
-- **Zoom**: `+` / `−` entre 6, 12, 25, 50, 100, 250 y 600 m/píxel; por defecto
-  50 m/píxel (ventana de ~36 × 24 km).
+  parado, rover), distancia y rumbo a Sagan, estado de la baliza y de Pathfinder.
+- **Zoom**: `+` / `−` entre 2, 6, 12, 25, 50, 100, 250 y 600 m/píxel; por defecto
+  6 m/píxel.
 - **Centrar en Sagan**: alterna el centro del mapa entre Sagan y el jugador; el
   texto del botón cambia a **Centrar en mí**.
 - **Ruta opcional**: si la preferencia `rumbo` está activa, se dibuja una línea
-  discontinua del jugador a Sagan. Sin ella, el mapa solo muestra el rombo y las
-  distancias, tal y como se pidió.
+  discontinua del jugador al destino de misión (Sagan, o los soportes de la nave
+  cuando toca montar la estación).
 
 ### Flecha de rumbo en el HUD
 
@@ -70,6 +76,24 @@ cambio se guarda y el evento `apex:preferencias` actualiza ambos menús.
 5. En rover: `V`, luego `W`/`S` y `A`/`D`; `Shift` turbo. A 18–26 m/s son unos
    2 minutos (o menos con turbo).
 
+### Capturas
+
+![Mapa local de Ares Vallis](imagenes/mapa-tablet.png)
+
+![Planisferio de Marte con tu posición](imagenes/marte-planisferio.png)
+
+### Generación de las cartas
+
+Las tres capas se generan una sola vez desde los DEM locales:
+
+```powershell
+python herramientas/cartas-tablet.py
+```
+
+Escribe `datos/cartas/marte.webp`, `regional.webp` y `ares.webp` con sombreado
+noroeste, rampa de color por altura y la máscara del DTM en la capa de detalle.
+Necesita `numpy` y `Pillow`.
+
 ## Cálculo de coordenadas
 
 El mapa usa:
@@ -87,10 +111,12 @@ aproximada (escala local constante), suficiente para orientarse en 48 km.
 
 - No se puede arrastrar ni desplazar el mapa libremente: se centra en el jugador
   o en Sagan y se acerca/aleja.
-- No dibuja el relieve ni la máscara exacta del DTM; dibuja el rectángulo de
-  detalle y una cuadrícula real. La imagen de satélite está en el globo Cesium,
-  no en la tablet.
+- El relieve es sombreado de una sola luz y una rampa de color: sirve para leer
+  valles y crestas, no es una ortofoto a color real.
+- Las cartas se descomprimen al abrir la tablet por primera vez; hasta que
+  terminan de cargar, el mapa dibuja la cuadrícula y las marcas (`cargando
+  relieve…`). Si un archivo falta, el mapa sigue funcionando sin ese relieve.
 - En pantallas muy bajas el diálogo hace scroll; en móvil el canvas se adapta al
   ancho.
 - La lectura de altura es relativa al impacto; no es una altitud absoluta.
-- El mapa no marca las rocas ni la baliza de campo.
+- El mapa no marca las rocas ni la baliza de campo una vez montada.

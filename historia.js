@@ -15,6 +15,7 @@ export function crearHistoria(C, viewer, detenerOtros, alCerrar) {
   const skip = $('historia-saltar'), visitNav = $('historia-visita')
   const sites = [...visitNav.querySelectorAll('[data-sitio]')]
   const reduced = matchMedia('(prefers-reduced-motion: reduce)')
+  const depurar = new URLSearchParams(location.search).has('depurar')
   const V = C.Cartesian3
   let active, cameraState, focusReturn, frame = 0, campaign, meshes, visitFrame
   let selected = 'sojourner', azimuth = .7
@@ -140,6 +141,8 @@ export function crearHistoria(C, viewer, detenerOtros, alCerrar) {
       if (active !== token) return
       viewer.useDefaultRenderLoop = false
       campaign = crearCampana({ reduced: skipRequested })
+      // Ayuda de depuración: ?depurar=1 expone la partida para las pruebas en navegador.
+      if (depurar) window.__apexJuego = { get campana() { return campaign }, get simulacion() { return campaign?.simulacion } }
     } catch (error) {
       if (active !== token) return
       viewer.useDefaultRenderLoop = cameraState.loop

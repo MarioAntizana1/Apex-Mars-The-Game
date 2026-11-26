@@ -120,8 +120,13 @@ export function crearEstacionSagan(T, world, height) {
   // Conservar los tonos originales del GLB; restaurarlos al retirar el polvo.
   const celdas=new Map(), polvo=new T.Color(0xb5825d)
   let sistemas={}
+  // Una única carga visual viaja con el jugador, incluso si el GLB aún está descargándose.
+  const equipo = new T.Group(); equipo.name='Pathfinder'; grupo.add(equipo)
+  function trasladar(destino, x, y, z, escala) {
+    destino.add(equipo); equipo.position.set(x,y,z); equipo.scale.setScalar(escala)
+  }
   const testigo=new T.Mesh(new T.SphereGeometry(.055,12,8),new T.MeshBasicMaterial())
-  testigo.name='testigo de radio Pathfinder';testigo.position.set(.17,.48,-.14);testigo.visible=false;grupo.add(testigo)
+  testigo.name='testigo de radio Pathfinder';testigo.position.set(.17,.48,-.14);testigo.visible=false;equipo.add(testigo)
   function telemetria(estado){
     sistemas=estado
     for(const [mat,limpio] of celdas)mat.color.copy(limpio).lerp(polvo,estado.panelesLimpios?0:.86)
@@ -144,7 +149,7 @@ export function crearEstacionSagan(T, world, height) {
       lander.position.set(LANDER.x, 0, LANDER.z)
       lander.rotation.y = .62
       lander.traverse(o=>{const m=o.material;if(m&&/^(Celdas|Retícula solar)/.test(m.name))celdas.set(m,m.color.clone())})
-      telemetria(sistemas);grupo.add(lander)
+      telemetria(sistemas);equipo.add(lander)
       rover.position.set(ROVER.x, .02, ROVER.z)
       rover.rotation.y = .2
       rover.scale.setScalar(1.6)
@@ -156,12 +161,12 @@ export function crearEstacionSagan(T, world, height) {
   }
 
   const choques = [
-    { x: LANDER.x, z: LANDER.z, r: 2.2 },
     { x: ROVER.x, z: ROVER.z, r: 1.3 },
     { x: SIGN.x, z: SIGN.z, r: .6 },
   ]
   function permite(x, z, radio = 0) {
     const dx = x - SAGAN.x, dz = z - SAGAN.z
+    if (equipo.parent === grupo && Math.hypot(dx-LANDER.x,dz-LANDER.z) < 2.2+radio) return false
     return !choques.some(c => Math.hypot(dx - c.x, dz - c.z) < c.r + radio)
   }
   function update(dt, pos) {
@@ -176,6 +181,7 @@ export function crearEstacionSagan(T, world, height) {
   function dispose() {
     if (disposed) return
     disposed = true
+    if (equipo.parent !== grupo) grupo.add(equipo)
     grupo.removeFromParent?.()
     grupo.traverse(o => {
       if (o.geometry) o.geometry.dispose()
@@ -183,5 +189,5 @@ export function crearEstacionSagan(T, world, height) {
       for (const m of mats) { m.map?.dispose?.(); m.dispose?.() }
     })
   }
-  return { permite, update, dispose, telemetria, grupo, SAGAN }
+  return { permite, update, dispose, telemetria, trasladar, grupo, SAGAN }
 }

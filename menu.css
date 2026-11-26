@@ -329,6 +329,28 @@
   }
 }
 
+#guia-controles {
+  box-sizing: border-box;
+  width: min(36rem, calc(100% - 2rem));
+  max-height: calc(100dvh - 2rem);
+  padding: 0 1.25rem 1rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  color: #fff1e8;
+  background: #201815;
+  border: 1px solid #b9835e;
+  border-radius: .8rem;
+  font: 1rem/1.5 system-ui, sans-serif;
+  touch-action: pan-y;
+}
+#guia-controles::backdrop { background: #100b09b8; }
+#guia-controles header { position: sticky; top: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .25rem; padding: .75rem 0; background: #201815; border-bottom: 1px solid #79523d; }
+#guia-controles h2 { margin: 0; font-size: 1.2rem; }
+#guia-controles h3 { margin: 1rem 0 .25rem; color: #ffd59c; font-size: 1rem; }
+#guia-controles p { margin: .35rem 0; }
+#guia-controles button { min-height: 44px; padding: .4rem .8rem; color: inherit; font: inherit; background: #402c22; border: 1px solid #b9835e; border-radius: .4rem; cursor: pointer; }
+#guia-controles button:focus-visible { outline: 2px solid #ffd59c; outline-offset: 2px; }
+
 /* El menú de inicio solo vive sobre el globo; se oculta en partida y vuelo. */
 body:has(#historia:not([hidden])) #menu,
 body:has(#vuelo-panel:not([hidden])) #menu { display: none !important; }

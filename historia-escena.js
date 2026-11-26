@@ -1,9 +1,11 @@
 import * as T from './vendor/three/three.module.min.js'
 import { crearCine } from './historia-cine.js'
+import { crearFinDemo } from './fin-demo.js'
 import { crearExploracion } from './historia-explora.js'
 import { DURACION, ejeTactil } from './historia-guion.js'
 import { guardarPreferencias, leerPreferencias } from './preferencias.js'
-import { GEO, MUNDO, ORIGEN, SAGAN } from './historia-terreno.js'
+import { GEO, ORIGEN, SAGAN } from './historia-terreno.js'
+import { cargarCartas, dibujarPlaneta, relieveLocal } from './historia-mapa.js'
 
 // A local, metre-scale stage. The globe and free-flight camera stay parked while this canvas is in use.
 export function crearCampana({ reduced = false } = {}) {
@@ -44,10 +46,30 @@ export function crearCampana({ reduced = false } = {}) {
   const events = new AbortController(), opts = { signal: events.signal }
   const text = (node, value) => { const v = value || ''; if (node.textContent !== v) node.textContent = v }
   const status = $('eva-aviso')
-  const ZOOMS = [6, 12, 25, 50, 100, 250, 600]
-  let zoomMapa = 3, centroMapa = 'jugador'
+  const ZOOMS = [2, 6, 12, 25, 50, 100, 250, 600]
+  let zoomMapa = 1, centroMapa = 'jugador'
 
+  const radio = $('radio-acto'), seguir = $('radio-seguir')
+  seguir.addEventListener('click', () => eva?.siguienteRadio(), opts)
+  radio.addEventListener('cancel', e => e.preventDefault(), opts)
+  const final = crearFinDemo({
+    dialogo: $('fin-demo'), botonSeguir: $('fin-demo-explorar'), botonSalir: $('fin-demo-salir'),
+    alAbrir() { resetPad(); mix() },
+    alSeguir() { previous = null; canvas.focus({ preventScroll: true }); mix() },
+    alSalir() { $('historia-salir').click() },
+  })
   const ui = {
+    finDemo() { final.abrir() },
+    radio(turno) {
+      if (!turno) { radio.close(); panel.removeAttribute('data-radio'); canvas.focus({preventScroll:true}); return }
+      panel.dataset.radio = 'si'
+      text($('radio-turno'), `ACTO II  /  CANAL DE SUPERFICIE  ·  ${turno.numero} DE ${turno.total}`)
+      text($('radio-emisor'), turno.emisor); text($('radio-mensaje'), turno.mensaje)
+      text(seguir, turno.numero === turno.total ? 'Volver a la superficie' : 'Continuar')
+      if (!radio.open) radio.showModal()
+      seguir.focus({preventScroll:true})
+    },
+    reduced,
     objective: v => text($('eva-objetivo'), v), inventory: v => text($('eva-equipo'), v),
     status(v) { text(status, v); messageTime = 6; if (v && audio && !muted) aviso() },
     prompt(v) { text(useButton, v); useButton.hidden = !v },
@@ -65,7 +87,7 @@ export function crearCampana({ reduced = false } = {}) {
     },
     tablet(v) { mapaButton.hidden = !v },
     mapa() { alternarMapa() },
-    paused() { return mapaAbierto || pausaAbierta },
+    paused() { return final.abierto || mapaAbierto || pausaAbierta },
     position(datos) {
       ultima = datos
       actualizarRuta(datos)
@@ -76,7 +98,7 @@ export function crearCampana({ reduced = false } = {}) {
   function mix() {
     if (!audio) return
     filtroViento.frequency.setTargetAtTime(fuera ? 680 : 210, audio.currentTime, .55)
-    const enPausa = pausaAbierta || mapaAbierto || document.hidden
+    const enPausa = final.abierto || pausaAbierta || mapaAbierto || document.hidden
     volumen.gain.setTargetAtTime(muted || enPausa ? 0 : fuera ? .085 : .033, audio.currentTime, .6)
   }
 
@@ -243,8 +265,10 @@ export function crearCampana({ reduced = false } = {}) {
 
   // --- Tablet y mapa -------------------------------------------------------
   const tabletCtx = tabletCanvas?.getContext?.('2d')
+  let planetario = false, cartas
+  $('tablet-planeta').addEventListener('click', () => { planetario = !planetario; dibujarMapa() }, opts)
   function alternarMapa() {
-    if (!eva) return
+    if (!eva || final.abierto) return
     if (mapaAbierto) cerrarMapa()
     else abrirMapa()
   }
@@ -304,6 +328,19 @@ export function crearCampana({ reduced = false } = {}) {
     g.clearRect(0, 0, w, h)
     g.fillStyle = '#1c1511'
     g.fillRect(0, 0, w, h)
+    cartas ??= cargarCartas(() => { if (mapaAbierto && !ended) dibujarMapa() })
+    const botonPlaneta = $('tablet-planeta')
+    botonPlaneta.setAttribute('aria-pressed', String(planetario))
+    botonPlaneta.title = planetario ? 'Volver al mapa de Ares Vallis' : 'Ver tu posición en todo Marte'
+    text($('tablet-titulo'), planetario ? 'Marte · mapa planetario' : 'Mapa de Ares Vallis')
+    tabletCanvas.setAttribute('aria-label', planetario ? 'Planisferio de Marte: tu posición en Ares Vallis, norte arriba y sur abajo' : 'Mapa de relieve local: tu posición, nave y Sagan, norte arriba y sur abajo')
+    $('tablet-local-leyenda').hidden = $('tablet-ruta').hidden = $('tablet-alejar').parentElement.hidden = planetario
+    const capas = planetario ? ['marte'] : ['marte', 'regional', 'ares']
+    const aviso = capas.some(id => cartas[id] === null) ? ' · relieve no disponible en alguna capa' : capas.some(id => !cartas[id]) ? ' · cargando relieve…' : ''
+    text($('tablet-capa'), (planetario ? 'Marte · relieve MOLA · norte arriba, sur abajo' : 'Ares Vallis · relieve MOLA / HiRISE · norte arriba, sur abajo') + aviso)
+    actualizarLectura(d, escala)
+    if (planetario) { dibujarPlaneta(g, cartas, d, w, h); return }
+    relieveLocal(g, cartas, sx, sy)
     // Cuadrícula geográfica real (latitud/longitud) adaptada al zoom.
     const pasos = [.002, .005, .01, .02, .05, .1, .2, .5]
     const paso = pasos.find(p => p * GEO.mPorGradoLon / escala >= 66) ?? .5
@@ -332,18 +369,10 @@ export function crearCampana({ reduced = false } = {}) {
       const lat = ORIGEN.lat - z / GEO.mPorGradoLat
       etiqueta(formatLat(lat), 6, Math.max(22, Math.min(h - 18, py + 4)))
     }
-    // Área con relieve real HiRISE y límite del mundo.
-    g.fillStyle = 'rgba(190,110,70,.13)'
-    g.fillRect(sx(MUNDO.x0), sy(MUNDO.z0), (MUNDO.x1 - MUNDO.x0) / escala, (MUNDO.z1 - MUNDO.z0) / escala)
-    g.strokeStyle = '#c98a5faa'; g.lineWidth = 1.5
-    g.strokeRect(sx(MUNDO.x0), sy(MUNDO.z0), (MUNDO.x1 - MUNDO.x0) / escala, (MUNDO.z1 - MUNDO.z0) / escala)
-    g.fillStyle = '#e0a878'; g.font = 'bold 11px ui-monospace, monospace'
-    g.fillText('DETALLE HiRISE · 1 m', sx(MUNDO.x0) + 6, sy(MUNDO.z0) + 8)
-    // La cobertura de detalle termina, el terreno transitable continúa.
     // Ruta opcional (la brújula se activa en Opciones).
     if (preferencias.rumbo) {
       g.setLineDash([8, 7]); g.strokeStyle = '#8ee6cd99'; g.lineWidth = 1.4
-      g.beginPath(); g.moveTo(sx(d.x), sy(d.z)); g.lineTo(sx(SAGAN.x), sy(SAGAN.z)); g.stroke()
+      g.beginPath(); g.moveTo(sx(d.x), sy(d.z)); g.lineTo(sx(d.regresoANave ? 0 : SAGAN.x), sy(d.regresoANave ? -8 : SAGAN.z)); g.stroke()
       g.setLineDash([])
     }
     // Nave, Sagan y jugador.
@@ -377,9 +406,13 @@ export function crearCampana({ reduced = false } = {}) {
     g.font = '12px ui-monospace, monospace'; g.fillText(`${metros >= 1000 ? metros / 1000 + ' km' : metros + ' m'}`, 18, h - 45)
     // Brújula.
     g.strokeStyle = '#ffcf9a'; g.fillStyle = '#ffcf9a'; g.lineWidth = 1.6
-    g.beginPath(); g.moveTo(w - 30, 26); g.lineTo(w - 36, 44); g.lineTo(w - 30, 39); g.lineTo(w - 24, 44); g.closePath(); g.stroke()
-    g.font = 'bold 12px ui-monospace, monospace'; g.fillText('N', w - 34, 12)
-    // Lectura y escala textual.
+    const eje = w / 2
+    g.beginPath(); g.moveTo(eje, 22); g.lineTo(eje - 6, 38); g.lineTo(eje, 34); g.lineTo(eje + 6, 38); g.closePath(); g.stroke()
+    g.font = 'bold 12px ui-monospace, monospace'; etiqueta('NORTE', eje - 16, 16)
+    etiqueta('SUR', eje - 10, h - 20)
+  }
+
+  function actualizarLectura(d, escala) {
     const saganD = Math.hypot(SAGAN.x - d.x, SAGAN.z - d.z)
     const rumbo = Math.atan2(SAGAN.x - d.x, -(SAGAN.z - d.z))
     if ($('tablet-escala')) $('tablet-escala').textContent = `1 km ≈ ${Math.round(1000 / escala)} px`
@@ -399,10 +432,10 @@ export function crearCampana({ reduced = false } = {}) {
     const mostrar = Boolean(preferencias.rumbo) && Boolean(eva) && !ended
     ruta.hidden = !mostrar
     if (!mostrar) return
-    const saganD = Math.hypot(SAGAN.x - d.x, SAGAN.z - d.z)
-    const ang = Math.atan2(SAGAN.x - d.x, -(SAGAN.z - d.z)) * 180 / Math.PI
+    const dx = (d.regresoANave ? 0 : SAGAN.x) - d.x, dz = (d.regresoANave ? -8 : SAGAN.z) - d.z
+    const ang = Math.atan2(dx, -dz) * 180 / Math.PI
     if (aguja) aguja.style.transform = `rotate(${ang - 90}deg)`
-    text(texto, `Sagan · ${textoDist(saganD)} · ${nombreRumbo(ang)}`)
+    text(texto, `${d.regresoANave ? 'Nave' : 'Sagan'} · ${textoDist(Math.hypot(dx,dz))} · ${nombreRumbo(ang)}`)
   }
 
   function sincronizarPreferencias() {
@@ -458,6 +491,7 @@ export function crearCampana({ reduced = false } = {}) {
   }
 
   function escape() {
+    if (final.abierto || radio.open) return true
     if (!eva) return false
     if (mapaAbierto) { cerrarMapa(); return true }
     if (pausaAbierta) { cerrarPausa(); return true }
@@ -467,6 +501,9 @@ export function crearCampana({ reduced = false } = {}) {
   function dispose() {
     if (ended) return
     ended = true
+    if (final.abierto) final.cerrar()
+    if (radio.open) radio.close()
+    panel.removeAttribute('data-radio')
     cancelAnimationFrame(raf); events.abort(); ro.disconnect(); resetPad()
     if (mapaAbierto) { mapaAbierto = false; if (tabletDialog?.open) tabletDialog.close() }
     pausaAbierta = false; pausa.hidden = true

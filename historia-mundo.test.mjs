@@ -12,12 +12,14 @@ const manifiesto = JSON.parse(readFileSync(new URL('manifiesto.json', raiz), 'ut
 function simulation() {
   const scene = new T.Scene(), camera = new T.PerspectiveCamera(54, 1.5, .3, 1000), canvas = new EventTarget()
   canvas.style = { touchAction: 'pan-y' }
-  const hud = {}, zone = []
+  const hud = { finales: 0 }, zone = []
   let tablilla = false, mapas = 0
   const ui = {
     exterior: v => zone.push(v),
     tablet: v => { tablilla = v },
     mapa: () => { mapas++ },
+    radio: v => { hud.radio = v },
+    finDemo: () => { hud.finales++ },
     vehiculo: () => {},
     position: () => {},
     paused: () => false,
@@ -176,10 +178,42 @@ test('la baliza viaja en rover y Pathfinder solo enlaza tras limpieza, encendido
   ir(SAGAN.x,SAGAN.z-13);usar(pieBaliza(),/Replegar/);ir(SAGAN.x,SAGAN.z-3.5)
   usar([SAGAN.x,suelo,SAGAN.z-5.2],/Anclar/);usar(lander,/Comprobar alcance/);usar(pieBaliza(),/Acoplar/)
   usar(lander,/Conectar baliza/);assert.equal(estado().comunicacionesActivas,false)
-  usar(lander,/enlace con Tierra/);assert.equal(estado().comunicacionesActivas,true)
-  assert.match(s.hud.objective,/Enlace con Tierra activo/);usar(pieBaliza(),/Replegar/)
-  assert.equal(estado().sitioBaliza,null);assert.equal(estado().balizaConectada,false);assert.equal(estado().comunicacionesActivas,false)
-  assert.equal(estado().panelesLimpios,true);assert.equal(estado().encendidoIntentado,true);assert.match(s.hud.inventory,/Baliza en mano/)
-  usar([SAGAN.x,suelo,SAGAN.z-5.2],/Anclar/);usar(pieBaliza(),/Acoplar/);usar(lander,/Conectar/);usar(lander,/enlace con Tierra/)
-  assert.equal(estado().comunicacionesActivas,true)
+  s.aim(...lander);s.sim.interact();assert.equal(estado().comunicacionesActivas,false)
+  const niebla=s.scene.fog.density
+  usar(pieBaliza(),/Accionar baliza/);assert.equal(estado().comunicacionesActivas,true)
+  const posicion=estado().z; s.walk(0,1,2);assert.equal(estado().z,posicion)
+  const mensajes=[]
+  while(s.hud.radio){
+    mensajes.push(s.hud.radio.mensaje);assert.ok(mensajes.length<=7)
+    assert.equal(estado().tormenta,s.hud.radio.numero===s.hud.radio.total)
+    s.sim.siguienteRadio()
+  }
+  assert.match(mensajes.join(' '),/dos años/);assert.match(mensajes.at(-1),/dos semanas/)
+  assert.equal(estado().actoFinalizado,true);assert.ok(s.scene.fog.density>niebla*20)
+  usar(lander,/Recoger Pathfinder/);assert.equal(estado().ubicacionPathfinder,'transporte')
+  usar(pieBaliza(),/Replegar y recoger/);assert.equal(estado().balizaRecuperada,true)
+  assert.equal(estado().sitioBaliza,null);assert.equal(estado().regresoANave,true)
+  assert.equal(s.sim.enlaceOrbitalListo(),false);assert.equal(s.hud.finales,0)
+  const rover=s.scene.getObjectByName('rover de superficie')
+  ir(rover.position.x,rover.position.z-1);s.sim.vehicle();assert.equal(estado().conduciendo,true)
+  assert.equal(s.scene.getObjectByName('Pathfinder').parent,rover);assert.equal(s.scene.getObjectByName('baliza estibada en rover').visible,true)
+  // En marcha atrás recorremos la misma recta hasta el lado despejado del casco.
+  s.sim.move(0,-1);for(let i=0;i<6000&&estado().z>-7;i++)s.sim.update(.08)
+  assert.ok(Math.hypot(estado().x,estado().z)<30);s.sim.move(0,0);s.sim.update(0)
+  // Al regresar por la llanura el rover vuelve a apoyar las seis ruedas.
+  assert.equal(estado().roverContactos,6);assert.equal(estado().roverEnVuelo,false)
+  s.sim.vehicle();s.sim.update(0)
+  ir(5.7,-8);usar([4,0,-8],/Montar baliza/);assert.equal(estado().balizaMontada,true)
+  assert.equal(s.sim.enlaceOrbitalListo(),false);assert.equal(s.hud.finales,0)
+  ir(5.7,-11);ir(-4,-11);usar([-4,0,-8],/Montar Pathfinder/)
+  assert.equal(estado().ubicacionPathfinder,'exterior');assert.equal(s.sim.enlaceOrbitalListo(),true)
+  assert.equal(s.hud.finales,0);assert.match(s.hud.objective,/puente/)
+  ir(0,-8);ir(0,-4.9);ir(0,-3.03);usar([1.16,1.73,-3.77],/Cerrar puerta B/)
+  usar([-1.71,1.72,-3.02],/Presurizar/);s.walk(0,0,4);usar([1.14,1.73,-2.29],/Abrir puerta A/)
+  ir(0,2.55);ir(-.48,2.55);ir(-.48,5.22);usar([0,1.55,5.72],/iagn/)
+  assert.match(s.hud.status,/comunicación orbital establecida/)
+  assert.equal(s.hud.finales,1);assert.match(s.hud.objective,/libremente/);assert.equal(estado().regresoANave,false)
+  usar([0,1.55,5.72],/iagn/);assert.equal(s.hud.finales,1)
+  // La telemetría de suspensión sobrevive al final de la demo.
+  assert.ok(Number.isFinite(estado().roverAltura));assert.ok(estado().roverContactos>=1)
 })

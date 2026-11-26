@@ -8,7 +8,7 @@ Desde `apex-mars/`:
 node --test --test-isolation=none
 ```
 
-Resultado actual: **39 pruebas, 39 correctas** en unos 1,6 s (sin navegador).
+Resultado actual: **56 pruebas, 56 correctas** en menos de un segundo (sin navegador).
 
 ## Qué cubre cada grupo
 
@@ -17,9 +17,13 @@ Resultado actual: **39 pruebas, 39 correctas** en unos 1,6 s (sin navegador).
 | `historia.test.mjs` | Guion, mando táctil, cabeceras de los GLB |
 | `historia-explora.test.mjs` | Nave, puente, esclusa, kit de baliza, movimiento y arrastre |
 | `historia-esclusa.test.mjs` | Ciclo de presión, sensores, enclavamientos y modelo físico |
-| `historia-puente.test.mjs` | Puesto de mando, trayecto del traje y visión del horizonte |
+| `historia-puente.test.mjs` | Puesto de mando, trayecto del traje, visión del horizonte y diagnóstico con y sin enlace orbital |
+| `rover-fisica.test.mjs` | Gravedad marciana, apoyo en llano, caída libre, salto al coronar una loma, aterrizaje y pendientes en el marco girado |
 | `vuelo.test.mjs` | Dinámica de vuelo, aterrizaje, LOD, control y trayectoria |
-| `historia-mundo.test.mjs` | Manifiesto y activos reales, estación Sagan, salto/carrera, rover, tablet y misión de la baliza |
+| `historia-mundo.test.mjs` | Manifiesto y activos reales, estación Sagan, salto/carrera, rover, tablet, misión de la baliza completa: transmisión, recogida de los dos equipos, vuelta, montaje en la nave, diagnóstico orbital y cierre de la demo |
+| `historia-mapa.test.mjs` | Cartas de relieve, georreferenciación, capas del mapa y planisferio con el jugador |
+| `guia-controles.test.mjs` | Botones de los dos menús, foco al cerrar y aislamiento de atajos |
+| `fin-demo.test.mjs` | Marcado accesible, animación del fundido, las dos salidas y el cableado con la escena |
 | `historia-regolito.test.mjs` | Detalle del suelo repetible, filtrado y sin costura al repetir la baldosa |
 | `historia-rocas.test.mjs` | Seis siluetas, determinismo, altura sobre el DTM, perímetros y presupuesto de dibujo |
 | `preferencias.test.mjs` | Valores seguros y guardado sin almacenamiento |
@@ -28,10 +32,30 @@ Resultado actual: **39 pruebas, 39 correctas** en unos 1,6 s (sin navegador).
 
 - **Activos nuevos**: `previa.bin` 58.082 B, `borde.bin` 460.225 B y
   `albedo-comun.webp` presente.
-- **Misión de la baliza**: se recoge en la nave, se ancla y se acopla, se repliega,
-  viaja en el rover, se replanta junto a Pathfinder; el enlace con Tierra solo se
-  activa tras limpiar los paneles, intentar el encendido, comprobar el alcance,
-  conectar la baliza y transmitir. Replagarla deshace el enlace.
+- **Misión de la baliza completa**: se recoge en la nave, se ancla y se acopla, se
+  repliega, viaja en el rover, se replanta junto a Pathfinder; el enlace con Tierra
+  solo se activa tras limpiar los paneles, intentar el encendido, comprobar el
+  alcance y conectar la baliza, y ahora **se acciona la baliza** para llamar a
+  Houston. La conversación (siete turnos) termina con la tormenta de arena: la
+  niebla pasa de `0,00062` a `0,057` y la simulación no avanza mientras se lee.
+  Después se recogen los dos equipos, se vuelve en marcha atrás por el mismo
+  camino, se montan Pathfinder y la baliza en sus soportes y el diagnóstico del
+  puente confirma el enlace orbital y abre el cierre de la demo una sola vez.
+- **Física del rover**: en llano las seis ruedas apoyan sin hundirse; en caída
+  libre la aceleración medida es 3,71 m/s²; al coronar una loma de 1,2 m a
+  14 m/s el chasis pierde contacto, vuela y vuelve a apoyar; una caída a −30 m/s
+  no atraviesa el terreno; las pendientes se leen correctamente al girar el
+  chasis.
+- **Conducción real en navegador** (`_probe/verificar-conduccion.mjs`): con
+  `?depurar=1` se salió por la esclusa, se desplegó el rover y se condujo con
+  turbo sobre el relieve HiRISE avanzando el tiempo de simulación desde CDP. El
+  rover quedó **16 de 32 muestras** con alguna rueda en el aire y las capturas
+  `rover-suspension.png` y `rover-vuelo.png` muestran apoyo, inclinación y vuelo.
+- **Cierre de la demo**: las pruebas comprueban el `<dialog>`, el fundido en CSS,
+  que `Esc` no decide por el jugador, que “seguir explorando” reanuda y que
+  “terminar” devuelve al globo, además de que la escena pausa la simulación.
+- **Guía de controles**: mismo diálogo desde inicio y pausa, `aria-haspopup`,
+  devolución del foco y atajos que no llegan a la escena.
 - **Regolito**: dos generaciones idénticas, filtrado con mipmaps y discontinuidad
   de las juntas comparable a la del interior de la baldosa.
 - **Rocas**: las seis geometrías se reparten, cada piedra apoya en su DTM, se
@@ -80,6 +104,18 @@ y Chrome DevTools Protocol (`Runtime.evaluate`, `Page.captureScreenshot`,
 - el mapa de la tablet y su lectura de coordenadas,
 - el menú de pausa de cristal y las opciones.
 
+En la última iteración se repitió con `_probe/verificar-cierre.mjs`, que carga la
+página real y conecta los módulos nuevos a su marcado:
+
+- **Guía de controles**: dos botones (`#menu` y `.pausa-lista`), `showModal`,
+  foco dentro del diálogo, `Esc`/`M` que no llegan a la escena y devolución del
+  foco al botón de origen.
+- **Cierre de la demo**: `showModal`, `animationName` `fin-demo-texto` en el panel y
+  `fin-demo-negro` en el `::backdrop`, fondo negro opaco, título y pregunta
+  correctos, y “Seguir explorando” que cierra el diálogo.
+- Capturas: [`fin-demo.png`](imagenes/fin-demo.png) y
+  [`guia-controles.png`](imagenes/guia-controles.png).
+
 En la última iteración se añadieron capturas específicas del terreno:
 
 - suelo del impacto con grano, grava y la huella de aterrizaje;
@@ -109,12 +145,12 @@ headless; el render de la escena three.js sí se vio.
 
 ### Nota sobre Cesium headless
 
-El globo Cesium **no se pudo capturar** con SwiftShader: el render de Cesium falla
-con `TypeError: this.skyBox.update is not a function` y deja el canvas negro. Es
-un problema del entorno headless, no de los cambios (el globo base ya estaba en el
-proyecto). El menú de inicio se validó con DOM simulado y revisión de código; la
-comprobación visual final del menú sobre el globo debe hacerse en un navegador
-real. La escena three.js sí se renderizó correctamente en headless.
+En pasadas anteriores el globo Cesium **no** se pudo capturar con SwiftShader
+(`this.skyBox.update is not a function`, canvas negro). En la última pasada, con
+`_probe/verificar-cierre.mjs`, el globo sí se renderizó y las capturas de la guía y
+del cierre se tomaron sobre esa misma página. Si vuelve a fallar, es un problema
+del entorno headless y no de los cambios: la comprobación visual final del menú
+sobre el globo debe hacerse en un navegador real.
 
 ## Cómo añadir una prueba
 

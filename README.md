@@ -2,8 +2,8 @@
 
 Juego de exploración marciana en el navegador. Empieza con el prólogo de la caída,
 sigue con una expedición a pie y en rover por el terreno real de Ares Vallis y
-termina en la Estación Científica Sagan, reconstruida en el sitio de aterrizaje de
-Mars Pathfinder (1997).
+pasa por la Estación Científica Sagan, reconstruida en el sitio de aterrizaje de
+Mars Pathfinder (1997). La demo termina de vuelta en el puente de la nave.
 
 ## ▶ Jugar ahora
 
@@ -37,10 +37,11 @@ También funciona en cualquier servidor estático o en GitHub Pages (rama
 | Mirar | Arrastrar sobre el terreno | Arrastrar |
 | Correr | Mantener `Shift` | Botón **Correr** |
 | Saltar | `Espacio` | Botón **Saltar** |
-| Interactuar / recoger | `E` | Botón contextual |
+| Interactuar / recoger / montar | `E` | Botón contextual |
 | Desplegar / conducir / bajar del rover | `V` | Botón **Vehículo** |
 | Mapa de la tablet | `M` | Botón **Tablet** |
 | Pausa / menú de cristal | `Esc` o **Menú** | **Menú** |
+| Guía de controles | Botón **Controles** (menú inicial y pausa) | Igual |
 | Mapa: acercar / alejar | Botones `+` / `−` | Igual |
 | Rover: acelerar / girar | `W`/`S`, `A`/`D`; `Shift` turbo | Botón **Vehículo** + joystick |
 
@@ -62,15 +63,24 @@ También funciona en cualquier servidor estático o en GitHub Pages (rama
 - **Misión de comunicaciones**: lleva la baliza del banco EVA, instálala, cárgala
   en el rover y replántala junto a Pathfinder. Allí, limpia los paneles,
   intenta el encendido, conecta la baliza y establece el enlace con Tierra.
-  Puedes replegar y reutilizar la baliza cuando quieras.
-- **Rover de seis ruedas** desplegable y conducible en tercera persona, con turbo.
+  Acciona la baliza para hablar con Houston. Tras la llegada de la tormenta,
+  recoge tanto Pathfinder como la baliza y llévalos de vuelta. Monta ambos
+  fuera, junto a la nave, y consulta el diagnóstico del puente. Una vez confirmado
+  el enlace orbital, puedes seguir en la misma partida o volver al globo.
+- **Rover de seis ruedas** desplegable y conducible en tercera persona. La suspensión responde al relieve; al coronar una cresta con velocidad, el rover puede perder contacto y caer bajo la gravedad marciana (3,71 m/s²).
 - **Correr y saltar**, con controles de teclado y táctiles.
-- **Tablet** con mapa real norte-arriba, cuadrícula de latitud/longitud, zoom,
-  navegador, marcador de Sagan y distancias; pausa la partida mientras se consulta.
+- **Tablet** con mapa de relieve real norte-arriba (sombras de HiRISE y MOLA),
+  cuadrícula de latitud/longitud, zoom, marcadores, distancias y un planisferio
+  2D de Marte con tu posición entre el polo norte y el sur. Pausa la partida
+  mientras se consulta.
 - **Menú de inicio** abajo a la izquierda sobre el globo, con visitas animadas
-  a Olimpo, Jezero, el globo completo y Valles Marineris.
-- **Menú de pausa de cristal** con desenfoque de fondo, opciones, créditos y
-  vuelta al globo.
+  a Olimpo, Jezero, el globo completo y Valles Marineris, y una **guía de
+  controles** disponible tanto al empezar como en la pausa.
+- **Menú de pausa de cristal** con desenfoque de fondo, opciones, controles,
+  créditos y vuelta al globo.
+- **Final de la demo**: al confirmar el enlace orbital desde el puente, un fundido
+  a negro anuncia el final y pregunta si quieres seguir explorando o volver al
+  globo.
 - **Audio sintetizado**: viento, pasos, motor del rover y avisos. Sin archivos de
   audio externos.
 
@@ -113,7 +123,7 @@ reproducible y está documentado en [02-datos-hirise.md](documentacion/02-datos-
 node --test --test-isolation=none
 ```
 
-Son 39 pruebas en Node, sin navegador. Ver [08-pruebas.md](documentacion/08-pruebas.md).
+Son 56 pruebas en Node, sin navegador. Ver [08-pruebas.md](documentacion/08-pruebas.md).
 
 ## Créditos
 

@@ -32,7 +32,8 @@ test('Trayecto de traje desde el umbral hasta diagnóstico: libre en colisión y
   assert.ok(accion.active()&&delta.length()<accion.range)
   const texture=puente.root.getObjectByName('Pantalla de vuelo 2').material.map
   assert.ok(texture.isDataTexture);const before=texture.version
-  assert.match(puente.diagnosticar(),/72 kPa/);assert.ok(texture.version>before)
+  assert.match(puente.diagnosticar(),/72 kPa · radio orbital sin enlace/);assert.ok(texture.version>before)
+  assert.match(puente.diagnosticar(true),/comunicación orbital establecida/)
 })
 
 test('Visión del horizonte desde los mandos: los rayos cruzan cristal, no un casco opaco',()=>{
