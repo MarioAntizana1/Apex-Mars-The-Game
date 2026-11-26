@@ -19,6 +19,7 @@ la escena three.js.
 | `index.html` | Marcado del globo, menú de inicio, historia, EVA, tablet, pausa y vuelo; hojas y módulos |
 | `globo.js` | Visor Cesium, capas, vuelos, turismo; crea la historia y el menú; `window.__apexMars` |
 | `menu.js` / `menu.css` | Menú de inicio: vistas previas, sobrevuelos, opciones, créditos |
+| `creditos.js` | Lista única de créditos (equipo, fuentes, recursos y tipografías) para el menú y la pausa; la detalla `documentacion/12-creditos.md` |
 | `preferencias.js` | `leerPreferencias` / `guardarPreferencias` y evento `apex:preferencias` |
 | `historia.js` | Modo historia Cesium (prólogo y visita Pathfinder); cierre y `escape` |
 | `historia-escena.js` | Campaña three.js: cine, EVA, HUD, tablet, pausa, audio |

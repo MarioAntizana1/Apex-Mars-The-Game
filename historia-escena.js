@@ -5,6 +5,7 @@ import { crearExploracion } from './historia-explora.js'
 import { DURACION, ejeTactil } from './historia-guion.js'
 import { guardarPreferencias, leerPreferencias } from './preferencias.js'
 import { GEO, ORIGEN, SAGAN } from './historia-terreno.js'
+import { crearListaCreditos } from './creditos.js'
 import { cargarCartas, dibujarPlaneta, relieveLocal } from './historia-mapa.js'
 
 // A local, metre-scale stage. The globe and free-flight camera stay parked while this canvas is in use.
@@ -244,20 +245,7 @@ export function crearCampana({ reduced = false } = {}) {
     pausaCreditos.dataset.creado = 'si'
     const h = document.createElement('h3'); h.textContent = 'Créditos'
     const ul = document.createElement('ul')
-    for (const [titulo, detalle] of [
-      ['Relieve e imagen', 'DTM y ortoimágenes HiRISE del sitio Pathfinder · NASA/JPL/University of Arizona'],
-      ['Relieve global', 'MOLA · NASA/JPL/MOLA Science Team'],
-      ['Globo', 'CesiumJS · Cesium GS, Apache 2.0'],
-      ['Escena 3D', 'three.js · MIT'],
-      ['Modelos Pathfinder y Sojourner', 'Reconstrucción original de APEX / MARS'],
-      ['Agradecimientos', 'NASA, JPL, USGS Astrogeology y la misión Mars Pathfinder (1997)'],
-    ]) {
-      const li = document.createElement('li'), b = document.createElement('b'), s = document.createElement('small')
-      b.textContent = titulo
-      s.textContent = detalle
-      li.append(b, s)
-      ul.append(li)
-    }
+    crearListaCreditos(document, ul)
     const volver = document.createElement('button'); volver.type = 'button'; volver.className = 'pausa-volver'; volver.textContent = 'Volver al menú de pausa'
     volver.addEventListener('click', () => { pausaCreditos.hidden = true })
     pausaCreditos.replaceChildren(h, ul, volver)

@@ -1,3 +1,4 @@
+import { crearListaCreditos } from './creditos.js'
 import { guardarPreferencias, leerPreferencias } from './preferencias.js'
 
 const RETARDO_PREVIA = 180
@@ -19,15 +20,6 @@ const SOBREVUELOS = {
     { lon: -60, lat: -3, altura: 110000, pitch: -70, duracion: 8 },
   ],
 }
-
-const CREDITOS = [
-  { titulo: 'Relieve e imagen de Ares Vallis', detalle: 'HiRISE DTM y ortoimágenes del sitio Pathfinder · NASA/JPL/University of Arizona' },
-  { titulo: 'Relieve global', detalle: 'MOLA · Mars Orbiter Laser Altimeter, NASA/JPL' },
-  { titulo: 'Imágenes de superficie', detalle: 'CTX y HiRISE · Mars Reconnaissance Orbiter, NASA/JPL-Caltech' },
-  { titulo: 'Cartografía base', detalle: 'Viking · NASA/USGS Astrogeology' },
-  { titulo: 'Motores', detalle: 'CesiumJS · Cesium GS, Apache 2.0 · three.js · MIT' },
-  { titulo: 'APEX / MARS', detalle: 'Experiencia educativa de exploración marciana' },
-]
 
 function menuInactivo() {
   return { ocultar() {}, mostrar() {}, actualizar() {}, destruir() {} }
@@ -93,15 +85,7 @@ export function crearMenu(C, viewer, ellipsoid, opciones = {}) {
     titulo.textContent = 'Créditos de la misión'
     const lista = document.createElement('ul')
     lista.className = 'menu-creditos-lista'
-    for (const credito of CREDITOS) {
-      const item = document.createElement('li')
-      const rotulo = document.createElement('b')
-      rotulo.textContent = credito.titulo
-      const nota = document.createElement('small')
-      nota.textContent = credito.detalle
-      item.append(rotulo, nota)
-      lista.append(item)
-    }
+    crearListaCreditos(document, lista)
     const retroceso = document.createElement('button')
     retroceso.type = 'button'
     retroceso.className = 'menu-volver'

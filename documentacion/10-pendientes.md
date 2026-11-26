@@ -72,7 +72,6 @@
   `herramientas/cartas-tablet.py`; si cambian los DEM hay que regenerarlas.
 - La barra de la historia y los botones se solapan en pantallas muy estrechas;
   el CSS reduce tamaños, pero no se probó en todos los móviles.
-- Los créditos son genéricos; faltan nombres reales si se quieren.
 - La guía de controles y el cierre de la demo están probados con DOM simulado y
   lectura de código, no con un navegador real en esta iteración.
 
@@ -104,5 +103,3 @@
 8. Ampliar la física del rover (daño por caída, vuelco, consumo y sonido por
    ruedas) y la cámara con colisión contra el casco.
 9. Añadir gamepad, opción de idioma y focus trap en la pausa.
-10. Incluir los nombres reales en los créditos y un enlace a esta documentación
-    desde el menú.

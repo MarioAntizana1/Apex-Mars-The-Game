@@ -8,7 +8,7 @@ Desde `apex-mars/`:
 node --test --test-isolation=none
 ```
 
-Resultado actual: **56 pruebas, 56 correctas** en menos de un segundo (sin navegador).
+Resultado actual: **60 pruebas, 60 correctas** en menos de un segundo (sin navegador).
 
 ## Qué cubre cada grupo
 
@@ -24,6 +24,7 @@ Resultado actual: **56 pruebas, 56 correctas** en menos de un segundo (sin naveg
 | `historia-mapa.test.mjs` | Cartas de relieve, georreferenciación, capas del mapa y planisferio con el jugador |
 | `guia-controles.test.mjs` | Botones de los dos menús, foco al cerrar y aislamiento de atajos |
 | `fin-demo.test.mjs` | Marcado accesible, animación del fundido, las dos salidas y el cableado con la escena |
+| `creditos.test.mjs` | Equipo, fuentes, recursos y tipografías; misma lista en menú, pausa y `12-creditos.md` |
 | `historia-regolito.test.mjs` | Detalle del suelo repetible, filtrado y sin costura al repetir la baldosa |
 | `historia-rocas.test.mjs` | Seis siluetas, determinismo, altura sobre el DTM, perímetros y presupuesto de dibujo |
 | `preferencias.test.mjs` | Valores seguros y guardado sin almacenamiento |
@@ -61,6 +62,11 @@ Resultado actual: **56 pruebas, 56 correctas** en menos de un segundo (sin naveg
 - **Rocas**: las seis geometrías se reparten, cada piedra apoya en su DTM, se
   respetan los perímetros de la nave y de Sagan, y con 25 sectores cargados el
   peor caso se queda en 18 lotes y 231.840 triángulos antes del frustum.
+
+- **Créditos**: los tres nombres del equipo, HiRISE, MOLA, CTX, Viking,
+  CesiumJS, three.js, glTF, Web Audio, WebP y las tipografías del sistema
+  aparecen en la lista compartida y en `12-creditos.md`; el menú y la pausa
+  renderizan la misma lista desde `creditos.js`.
 
 ### Ajuste de una prueba antigua
 

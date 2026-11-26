@@ -98,6 +98,7 @@ Toda la documentación está en [`documentacion/`](documentacion/README.md):
 8. [Pruebas](documentacion/08-pruebas.md)
 9. [Cómo se hizo](documentacion/09-como-se-hizo.md)
 10. [Pendientes y límites conocidos](documentacion/10-pendientes.md)
+11. [Bibliografía y fuentes](documentacion/11-bibliografia.md)
 
 ## Datos y generación
 
@@ -123,10 +124,12 @@ reproducible y está documentado en [02-datos-hirise.md](documentacion/02-datos-
 node --test --test-isolation=none
 ```
 
-Son 56 pruebas en Node, sin navegador. Ver [08-pruebas.md](documentacion/08-pruebas.md).
+Son 60 pruebas en Node, sin navegador. Ver [08-pruebas.md](documentacion/08-pruebas.md).
 
 ## Créditos
 
+- **Equipo**: Mario Manuel Antizana Ponce de Leon, Esther Mamani Condor y
+  Diego Bellido Tello.
 - Relieve e imagen de Ares Vallis: **HiRISE**, NASA/JPL/University of Arizona
   (DTM `DTEEC_002391_1995_001890_1995_A01`, ortoimágenes `PSP_002391_1995_RED_C`
   y `PSP_001890_1995_RED_C`).
@@ -136,3 +139,8 @@ Son 56 pruebas en Node, sin navegador. Ver [08-pruebas.md](documentacion/08-prue
 - Modelos Pathfinder y Sojourner: reconstrucción original del proyecto
   (`modelos/generar.py`).
 - La misión real **Mars Pathfinder** (1997) como inspiración.
+
+La procedencia completa de cada dato, con enlaces, licencias y limitaciones,
+está en [Bibliografía y fuentes](documentacion/11-bibliografia.md). El equipo,
+las fuentes, las tipografías y los recursos de software están en
+[Créditos, fuentes y recursos](documentacion/12-creditos.md).

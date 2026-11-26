@@ -29,7 +29,8 @@ Se consultaron todos los puntos antes de suponer:
 6. **Mapa**: 2D esquemático, norte arriba, con zoom, cuadrícula real y pausa.
 7. **Menú**: el grande es solo para el arranque; después, pausa de cristal.
 8. **Inicio**: prólogo con opción de saltarlo, como ya estaba.
-9. **Créditos**: genéricos con NASA/JPL, USGS, Cesium y three.js.
+9. **Créditos**: lista compartida con el equipo, NASA/JPL, USGS, CesiumJS,
+   three.js, las tipografías del sistema y los recursos.
 10. **Imágenes científicas**: capas orbitales del globo.
 11. **Sonido**: solo ambiente sintetizado, sin música.
 12. **Límite**: extender con MOLA global más allá del DTM.
@@ -150,7 +151,7 @@ entregó `menu.js` y `menu.css`, que se revisaron e integraron.
 
 ## Verificación
 
-- **56 pruebas** en Node; todas pasan.
+- **60 pruebas** en Node; todas pasan.
 - Comprobación visual con Edge headless + CDP: cabina, terreno real, juntas entre
   sectores, horizonte, bloques de roca, Sagan, rover, mapa y pausa. Capturas en
   `documentacion/imagenes/`.

@@ -16,9 +16,11 @@ los datos, las pruebas y el proceso de trabajo.
 | [05-menu-y-pausa.md](05-menu-y-pausa.md) | Menú de inicio, vistas previas, sobrevuelos, arranque y menú de pausa de cristal |
 | [06-audio-y-preferencias.md](06-audio-y-preferencias.md) | Viento, pasos, motor, avisos y las tres preferencias |
 | [07-arquitectura.md](07-arquitectura.md) | Módulos, APIs, ganchos de interfaz, ciclo de vida y depuración |
-| [08-pruebas.md](08-pruebas.md) | Cómo ejecutar y qué cubren las 56 pruebas; notas de navegador headless |
+| [08-pruebas.md](08-pruebas.md) | Cómo ejecutar y qué cubren las 60 pruebas; notas de navegador headless |
 | [09-como-se-hizo.md](09-como-se-hizo.md) | Bitácora del proceso, decisiones y errores corregidos |
 | [10-pendientes.md](10-pendientes.md) | Límites conocidos y mejoras futuras |
+| [11-bibliografia.md](11-bibliografia.md) | Fuentes, créditos, licencias y trazabilidad de todos los datos |
+| [12-creditos.md](12-creditos.md) | Equipo, fuentes, recursos de software, tipografías y cómo citar el juego |
 
 ## Imágenes
 

@@ -107,8 +107,11 @@ pulsar el fondo también cierra.
 
 - **Opciones** abre las tres casillas: sonidos, imágenes científicas y flecha de
   rumbo. Los cambios se guardan y se propagan al menú de inicio.
-- **Créditos** muestra el listado (HiRISE, MOLA, Cesium, three.js, modelos y
-  agradecimientos) generado al abrir.
+- **Créditos** muestra la lista compartida de `creditos.js`: el equipo, las
+  fuentes de datos (HiRISE, MOLA, CTX y Viking), los recursos de software
+  (CesiumJS y three.js), las tipografías del sistema y los agradecimientos. La
+  misma lista se ve en el menú de inicio y se detalla en
+  [12-creditos.md](12-creditos.md).
 - **Volver al globo y menú** cierra la pausa, pulsa *Volver al globo* y, al
   cerrarse la historia, el menú de inicio vuelve a aparecer. Desde ahí se puede
   empezar otra partida.
@@ -176,8 +179,9 @@ Carga
   renderizar el globo (error interno `this.skyBox.update`). En un navegador real
   el globo ya funcionaba antes de estos cambios; conviene una comprobación visual
   final.
-- Los créditos son genéricos (no hay nombres de autoría reales); se pueden
-  personalizar en `menu.js` y en `crearCreditosPausa`.
+- Los créditos salen de `creditos.js`, compartido por el menú de inicio y la
+  pausa; para cambiar nombres o recursos se edita ahí y en
+  [12-creditos.md](12-creditos.md).
 - El menú de inicio no reaparece automáticamente al recargar la partida (no hay
   guardado); al volver al globo sí.
 - La pausa no atrapa el foco con un focus trap completo; es una capa con botones
