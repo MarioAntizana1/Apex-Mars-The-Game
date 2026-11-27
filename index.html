@@ -67,9 +67,9 @@
   <nav id="menu" aria-label="Menú principal" data-vista="globo">
     <p class="menu-marca"><span>APEX / MARS</span><small>Globo de Marte</small></p>
     <div class="menu-lista">
-      <button type="button" data-menu="iniciar" aria-pressed="false"><b>Iniciar partida</b><small>Monte Olimpo</small></button>
+      <button type="button" data-menu="iniciar" aria-pressed="false"><b>Iniciar partida</b><small>La caída</small></button>
       <button type="button" data-guia-controles aria-haspopup="dialog" aria-controls="guia-controles"><b>Controles</b><small>Cómo moverse y jugar</small></button>
-      <button type="button" data-menu="opciones" aria-pressed="false"><b>Opciones</b><small>Cráter Jezero</small></button>
+      <button type="button" data-menu="opciones" aria-pressed="false"><b>Opciones</b><small>Preferencias de la misión</small></button>
       <button type="button" data-menu="globo" aria-pressed="false"><b>Ver el globo</b><small>Marte completo</small></button>
       <button type="button" data-menu="creditos" aria-pressed="false"><b>Créditos</b><small>Valles Marineris</small></button>
     </div>
@@ -101,7 +101,17 @@
       </fieldset>
       <button type="button" id="menu-volver">Volver a los destinos</button>
     </section>
-    <section id="menu-creditos" hidden aria-label="Créditos"></section>
+    <section id="menu-creditos" hidden aria-label="Créditos">
+      <div class="creditos-ventana" tabindex="0" aria-label="Lista de créditos">
+        <div class="creditos-roll">
+          <p class="creditos-lugar">Ius Chasma · Valles Marineris</p>
+          <h2>Créditos de la misión</h2>
+          <ul class="menu-creditos-lista"></ul>
+        </div>
+      </div>
+      <button class="menu-volver" type="button">Volver al menú</button>
+      <audio preload="none" src="./cancion8bits.mp3" loop></audio>
+    </section>
     <p class="menu-docs"><a href="./documentacion/README.md">Documentación del proyecto</a></p>
     <p id="menu-estado" role="status">Elige un destino</p>
   </nav>

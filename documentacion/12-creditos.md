@@ -72,7 +72,8 @@ acreditar.
 - **Modelos 3D** (Pathfinder, Sojourner y cohete): reconstrucciones originales del
   proyecto con [`modelos/generar.py`](../modelos/generar.py), no modelos oficiales
   de la misión. Se distribuyen con la licencia MIT del repositorio.
-- **Sonido**: sintetizado con la Web Audio API; no hay archivos de audio.
+- **Efectos de sonido**: el viento, los pasos, el motor y los avisos se sintetizan con la Web Audio API.
+- **Música de los créditos**: Engel Retro · Cristian Castro - Azul [8-Bit Version] ([cancion8bits.mp3](../cancion8bits.mp3)).
 - **Rocas, regolito y detalle del suelo**: procedurales, generados en el
   repositorio a partir del DTM.
 - **Capturas** de `documentacion/imagenes/`: del propio juego o derivados de los

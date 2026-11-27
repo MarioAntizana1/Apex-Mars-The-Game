@@ -16,9 +16,10 @@ export const CREDITOS = [
   { titulo: 'Motores', detalle: 'CesiumJS 1.147.0 · Apache 2.0; three.js r160 · MIT' },
   { titulo: 'Modelos 3D', detalle: 'Pathfinder y Sojourner · reconstrucción original del proyecto; glTF 2.0' },
   { titulo: 'Tipografías', detalle: 'Pila del sistema (system-ui / Segoe UI y ui-monospace); sin fuentes externas' },
-  { titulo: 'Audio', detalle: 'Web Audio API · sonido sintetizado, sin archivos externos' },
+  { titulo: 'Audio', detalle: 'Web Audio API · efectos de sonido sintetizados' },
   { titulo: 'Herramientas', detalle: 'Node.js · NumPy · Pillow · WebP para datos, cartas y pruebas' },
   { titulo: 'Agradecimientos', detalle: 'NASA, JPL, USGS Astrogeology y la misión Mars Pathfinder (1997)' },
+  { titulo: 'Engel Retro', detalle: 'Cristian Castro - Azul [8-Bit Version]' },
 ]
 
 export function crearListaCreditos(documento, lista, datos = CREDITOS) {

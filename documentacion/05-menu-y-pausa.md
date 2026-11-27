@@ -5,9 +5,9 @@
 El menú aparece **abajo a la izquierda** sobre el globo de Marte al cargar la
 página. Es una tarjeta de cristal oscuro con cinco botones:
 
-1. **Iniciar partida** — Monte Olimpo.
+1. **Iniciar partida** — La caída.
 2. **Controles** — guía de controles completa (ver abajo).
-3. **Opciones** — Cráter Jezero.
+3. **Opciones** — preferencias.
 4. **Ver el globo** — Marte completo.
 5. **Créditos** — Valles Marineris.
 
@@ -24,34 +24,15 @@ tablet y rover, vuelo libre y mandos táctiles. La guía:
 - `guia-controles.js` contiene la lógica y `guia-controles.test.mjs` comprueba
   ambos accesos, el foco y el aislamiento de los atajos.
 
-### Vistas previas
+### Órbita y créditos
 
-Al pasar el puntero o el foco por una opción (con un retardo de 180 ms) la cámara
-vuela al destino **sin arrancar el sobrevuelo**:
+En el inicio y en opciones, la cámara completa una órbita en 20 segundos. El Sol ilumina un hemisferio y aparece junto al borde de Marte en cada vuelta. Pasar el puntero por un botón no interrumpe la órbita.
 
-| Opción | lon | lat | altura | pitch | duración |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Iniciar / Olimpo | −133,2° | 18,31° | 210 km | −88° | 3,6 s |
-| Opciones / Jezero | 77,4509° | 18,4446° | 22 km | −62° | 3,2 s |
-| Ver el globo | 73° | 16° | 8.400 km | −90° | 3,0 s |
-| Créditos / Marineris | −78,5° | −7,7° | 420 km | −80° | 3,4 s |
-
-### Al hacer clic
-
-- **Iniciar partida**: cancela cualquier vuelo, oculta el menú y pulsa el botón
-  del modo historia; empieza el prólogo **La caída**. El prólogo se puede saltar
-  con **Saltar prólogo** y después arranca la exploración EVA.
-- **Opciones**: abre el panel de preferencias (sonidos, imágenes científicas,
-  flecha de rumbo) y lanza un **sobrevuelo de Jezero** en dos tramos:
-  (77,18, 18,46, 3,2 km) → (77,86, 18,43, 2,8 km), 5 s + 7 s.
-- **Ver el globo**: vuelve a Marte completo; el menú sigue visible.
-- **Controles**: abre la guía de controles sin cambiar de vista ni empezar la
-  partida.
-- **Créditos**: abre los créditos y lanza un **sobrevuelo de Valles Marineris**
-  en dos tramos: (−98,−16, 130 km) → (−60,−3, 110 km), 6 s + 8 s.
-- **Volver a los destinos** (en los paneles) o **Volver** devuelven la cámara a
-  Marte completo sin ocultar el menú.
-
+- **Iniciar partida** abre el prólogo **La caída**.
+- **Opciones** muestra las preferencias sin salir de la órbita.
+- **Ver el globo** regresa a la vista del planeta completo.
+- **Controles** abre la guía sin empezar la partida.
+- **Créditos** recorre Ius Chasma a baja altura. Los nombres suben por el centro durante 65 segundos y la pista de Engel Retro suena si los sonidos están activados. Al terminar se vuelve al menú; también se puede salir con **Esc** o **Volver al menú**.
 Con `prefers-reduced-motion` se usa `setView` inmediato y no se animan los
 sobrevuelos. Si Cesium o el DOM no están disponibles, `crearMenu` devuelve una
 API inactiva y no rompe la página.

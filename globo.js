@@ -5,6 +5,7 @@ import { crearVuelo } from './vuelo.js?v=cabina'
 import { atmosferaMarciana, stylishTiles } from './imagen-marciana.js'
 import { crearHistoria } from './historia.js'
 import { crearMenu } from './menu.js'
+import { crearOrbitaMenu } from './orbita-menu.js'
 import { conectarMandoPrincipal } from './menu-mando.js'
 
 const C = window.Cesium
@@ -19,7 +20,8 @@ async function load(path) {
 
 async function start() {
   const params = new URLSearchParams(location.search)
-  const trial = params.get('marineris') === '1' ? await (await load('bloques/marineris/indice.json')).json() : null
+  const indiceIus = await (await load('bloques/marineris/indice.json')).json()
+  const trial = params.get('marineris') === '1' ? indiceIus : null
   const { relieve, imagenes, destinos } = await (await load('bloques/indice.json?v=caldera')).json()
   const ellipsoid = new C.Ellipsoid(3396190, 3396190, 3396190)
   C.Ellipsoid.default = ellipsoid
@@ -28,7 +30,8 @@ async function start() {
   const globalDetailLevel = 7
   const region = (zone, path) => ({ path, level: zone.nivel, rect: C.Rectangle.fromDegrees(...zone.bbox) })
   const regions = relieve.zonas.map(zone => region(zone, 'relieve'))
-  const marineris = (trial?.relieve ?? []).map(zone => region(zone, 'marineris/relieve'))
+  // El vuelo de créditos usa el DEM regional; reserva el parche de aterrizaje para la visita especial.
+  const marineris = indiceIus.relieve.filter(zone => trial || zone.nivel <= 11).map(zone => region(zone, 'marineris/relieve'))
   function regional(x, y, level) {
     const tile = scheme.tileXYToRectangle(x, y, level)
     const overlaps = ({ level: max, rect }) => level <= max &&
@@ -157,16 +160,21 @@ async function start() {
   }
   const flyButton = document.querySelector('#sobrevuelo')
   let flyover = false
+  const orbita = crearOrbitaMenu(C, viewer, ellipsoid)
   function stopFlyover() {
+    orbita.detener()
     flyover = false
     flyButton.textContent = 'Sobrevolar Jezero'
     altitude.hidden = true
     viewer.camera.cancelFlight()
   }
   const stopPilot = crearVuelo(C, viewer, status, stopFlyover)
+  // Sitúa el globo antes de iniciar la cámara del menú (también en modo sin animación).
+  go('global', 0)
   let menu
   crearHistoria(C, viewer, () => { stopPilot(); stopFlyover() }, () => menu?.mostrar())
   menu = crearMenu(C, viewer, ellipsoid, {
+    orbita,
     iniciar: () => document.getElementById('abrir-historia').click(),
     reduced: reduced.matches,
     ciencia: activa => { for (const capa of capasCientificas) capa.show = activa },
@@ -186,6 +194,7 @@ async function start() {
     }
   })
   flyButton.onclick = () => {
+    orbita.detener()
     stopPilot()
     if (flyover) {
       stopFlyover()
@@ -263,7 +272,6 @@ async function start() {
     const picked = viewer.scene.pick(position)
     if (picked?.collection === pins || picked?.primitive instanceof C.PointPrimitive) go(picked.id, 3.1)
   }, C.ScreenSpaceEventType.LEFT_CLICK)
-  go('global', 0)
   let firstLocalDetail
   if (trial) {
     const experiment = marinerisViews(C, viewer, trial, addImagery, showView)

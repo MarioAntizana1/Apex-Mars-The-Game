@@ -41,6 +41,16 @@ test('la lista acredita fuentes, recursos y tipografías', () => {
   assert.match(tipografias.detalle, /sin fuentes externas/)
 })
 
+test('la música local de los créditos se acredita al final', async () => {
+  const { titulo, detalle } = CREDITOS.at(-1)
+  assert.equal(titulo, 'Engel Retro')
+  assert.equal(detalle, 'Cristian Castro - Azul [8-Bit Version]')
+  const documento = await readFile(new URL('./documentacion/12-creditos.md', import.meta.url), 'utf8')
+  assert.ok(documento.includes(`${titulo} · ${detalle}`))
+  const pista = await readFile(new URL('./cancion8bits.mp3', import.meta.url))
+  assert.ok(pista.length > 0, 'falta la pista de los créditos')
+})
+
 test('la lista se renderiza igual en cualquier contenedor', () => {
   const documento = { createElement: etiqueta => nodo(etiqueta) }
   const lista = documento.createElement('ul')

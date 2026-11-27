@@ -361,3 +361,67 @@ body:has(#menu:not([hidden])) #panel { display: none !important; }
 #menu .menu-docs { margin: 0; text-align: right; font-size: .72rem; line-height: 1.3 }
 #menu .menu-docs a { color: var(--menu-tenue); text-decoration-color: #79523d }
 #menu .menu-docs a:hover { color: var(--menu-acento) }
+
+/* Plano final: el lienzo de Cesium permanece visible a ambos lados del texto. */
+#menu[data-vista='creditos'] {
+  inset: 0;
+  width: 100%;
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(90deg, transparent, #120d0bb3 50%, transparent),
+    linear-gradient(0deg, #100b0be6, transparent 22%, transparent 85%, #100b0b66);
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  animation: none;
+}
+#menu[data-vista='creditos'] > :not(#menu-creditos) { display: none; }
+#menu[data-vista='creditos'] #menu-creditos {
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr) auto;
+  justify-items: center;
+  gap: .75rem;
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  border: 0;
+  animation: none;
+  text-align: center;
+}
+#menu-creditos .creditos-ventana {
+  width: min(100%, 40rem);
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+#menu-creditos .creditos-ventana:focus-visible { outline: 2px solid var(--menu-acento); }
+#menu-creditos .creditos-roll {
+  padding: 2rem clamp(.5rem, 3vw, 2rem);
+  color: #fff7ed;
+  text-shadow: 0 1px 3px #120c0b, 0 2px 12px #120c0b;
+}
+#menu-creditos .creditos-lugar { margin: 0; color: #ffdbab; font-weight: 650; letter-spacing: .14em; text-transform: uppercase; }
+#menu-creditos h2 { margin: .5rem 0 3rem; font-size: clamp(1.8rem, 5vw, 3.4rem); line-height: 1.08; }
+#menu-creditos .menu-creditos-lista { gap: clamp(1.75rem, 4vh, 3rem); }
+#menu-creditos .menu-creditos-lista li { border: 0; padding: 0; gap: .3rem; }
+#menu-creditos .menu-creditos-lista b { color: #fff8ef; font-size: clamp(1.1rem, 2.8vw, 1.55rem); }
+#menu-creditos .menu-creditos-lista small { color: #ffdec0; font-size: clamp(.94rem, 1.8vw, 1.12rem); line-height: 1.5; }
+#menu[data-vista='creditos'] .menu-volver { width: auto; padding-inline: 2rem; background: #211815e8; }
+
+@keyframes roll-final {
+  from { transform: translateY(64vh); }
+  to { transform: translateY(-100%); }
+}
+/* La lectura manual es la base: funciona incluso sin animaciones del sistema. */
+@media (prefers-reduced-motion: no-preference) {
+  #menu[data-vista='creditos'] #menu-creditos:not([data-reducido='true']) .creditos-ventana {
+    overflow: clip;
+    mask-image: linear-gradient(transparent, black 6%, black 94%, transparent);
+  }
+  #menu[data-vista='creditos'] #menu-creditos:not([data-reducido='true']) .creditos-roll {
+    animation: roll-final 65s linear 1 both;
+  }
+}
