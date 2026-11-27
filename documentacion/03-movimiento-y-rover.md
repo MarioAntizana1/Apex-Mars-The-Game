@@ -184,7 +184,6 @@ simulador devuelve además `siguienteRadio()` (avanza el diálogo con Houston) y
 - No hay daño, combustible, vuelco ni caída desde grandes alturas.
 - El rover no se rompe al aterrizar fuerte; la suspensión absorbe y no hay daño.
 - La cámara no hace colisión contra el casco al montar cerca de la nave.
-- No hay gamepad ni mando analógico para el rover; el joystick táctil es para el
-  traje.
+- La exploración y el rover admiten [dos mandos Xbox compartidos](13-voz-y-mando.md); no hay segundo avatar.
 - Las rocas no bloquean el paso (solo son visuales), salvo las piezas de Sagan y
   la baliza.

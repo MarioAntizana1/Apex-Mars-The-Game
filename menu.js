@@ -37,6 +37,10 @@ export function crearMenu(C, viewer, ellipsoid, opciones = {}) {
   const sonido = raiz.querySelector('#opcion-sonido')
   const ciencia = raiz.querySelector('#opcion-ciencia')
   const rumbo = raiz.querySelector('#opcion-rumbo')
+  const voz = raiz.querySelector('#opcion-voz')
+  const idiomaVoz = raiz.querySelector('#opcion-idioma-voz')
+  const vozHablada = raiz.querySelector('#opcion-voz-hablada')
+  const mando = raiz.querySelector('#opcion-mando')
   const volver = raiz.querySelector('#menu-volver')
   const control = new AbortController()
   const { signal } = control
@@ -249,11 +253,27 @@ export function crearMenu(C, viewer, ellipsoid, opciones = {}) {
     if (typeof opciones.ciencia === 'function') opciones.ciencia(activa)
   }
 
+  function sincronizarControles(prefs) {
+    const campos = [
+      ['opcion-voz', prefs.voz], ['pausa-voz', prefs.voz],
+      ['opcion-idioma-voz', prefs.idiomaVoz], ['pausa-idioma-voz', prefs.idiomaVoz],
+      ['opcion-voz-hablada', prefs.vozHablada, 'checkbox'], ['pausa-voz-hablada', prefs.vozHablada, 'checkbox'],
+      ['opcion-mando', prefs.mando, 'checkbox'], ['pausa-mando', prefs.mando, 'checkbox'],
+    ]
+    for (const [id, valor, tipo] of campos) {
+      const nodo = document.getElementById(id)
+      if (!nodo) continue
+      if (tipo === 'checkbox') nodo.checked = Boolean(valor)
+      else nodo.value = valor
+    }
+  }
+
   function actualizar() {
     const prefs = leerPreferencias()
     if (sonido) sonido.checked = prefs.sonido
     if (ciencia) ciencia.checked = prefs.ciencia
     if (rumbo) rumbo.checked = prefs.rumbo
+    sincronizarControles(prefs)
     if (prefs.ciencia !== cienciaAplicada) aplicarCiencia(prefs.ciencia)
   }
 
@@ -286,13 +306,25 @@ export function crearMenu(C, viewer, ellipsoid, opciones = {}) {
     guardarPreferencias({ rumbo: Boolean(rumbo.checked) })
     anunciar(rumbo.checked ? 'Flecha de rumbo activada' : 'Flecha de rumbo desactivada')
   })
+  escuchar(voz, 'change', () => {
+    guardarPreferencias({ voz: voz.value })
+    anunciar({ apagada: 'Voz del OBC apagada', ptt: 'Pulsar para hablar · mantén F o LB', siempre: 'OBC escuchando «Nostromo»' }[voz.value] ?? 'Voz del OBC actualizada')
+  })
+  escuchar(idiomaVoz, 'change', () => {
+    guardarPreferencias({ idiomaVoz: idiomaVoz.value })
+    anunciar('Idioma de voz actualizado')
+  })
+  escuchar(vozHablada, 'change', () => {
+    guardarPreferencias({ vozHablada: Boolean(vozHablada.checked) })
+    anunciar(vozHablada.checked ? 'Voz hablada activada' : 'Voz hablada desactivada')
+  })
+  escuchar(mando, 'change', () => {
+    guardarPreferencias({ mando: Boolean(mando.checked) })
+    anunciar(mando.checked ? 'Mando de Xbox activado' : 'Mando de Xbox desactivado')
+  })
   escuchar(globalThis, 'apex:preferencias', actualizar)
 
-  const prefs = leerPreferencias()
-  if (sonido) sonido.checked = prefs.sonido
-  if (ciencia) ciencia.checked = prefs.ciencia
-  if (rumbo) rumbo.checked = prefs.rumbo
-  aplicarCiencia(prefs.ciencia)
+  actualizar()
   cerrarPaneles()
   seleccionar('globo')
   anunciar('Marte completo · elige un destino')

@@ -151,7 +151,9 @@ entregó `menu.js` y `menu.css`, que se revisaron e integraron.
 
 ## Verificación
 
-- **60 pruebas** en Node; todas pasan.
+- **109 pruebas** en Node; todas pasan. La voz, la consola y los mandos se
+  probaron con APIs simuladas y, además, en Edge headless con `SpeechRecognition`
+  y `getGamepads` falsos (9 pasos, capturas en `_probe/obc-qa/evidencia/`).
 - Comprobación visual con Edge headless + CDP: cabina, terreno real, juntas entre
   sectores, horizonte, bloques de roca, Sagan, rover, mapa y pausa. Capturas en
   `documentacion/imagenes/`.
@@ -161,6 +163,19 @@ entregó `menu.js` y `menu.css`, que se revisaron e integraron.
   `skyBox.update`); hay que verlo en un navegador real.
 - Se limpiaron los archivos temporales, los perfiles de Edge y los 450 MB de
   datos fuente. Solo queda lo necesario para jugar y regenerar.
+
+## Voz y mandos
+
+El OBC se diseñó como una capa de intención sobre la simulación existente: el
+catálogo de órdenes vive en `comandos.js`, el emparejador tolera erratas y
+negaciones en `voz.js`, y `cabina-obc.js` enruta micrófono, consola escrita y
+mandos hacia las mismas puertas de la misión. Así, «despliega el rover» y `V`
+nunca pueden divergir, y la voz no puede saltarse Sagan ni repetir el final. La
+consola escrita se añadió como camino accesible y como red de pruebas sin
+micrófono. El reconocimiento del navegador puede enviar audio a su servicio y
+requiere permiso; se documenta en la propia interfaz y se puede apagar. Los
+mandos comparten un único astronauta para no abrir un modo cooperativo que el
+juego no tiene.
 
 ## Problemas de entorno
 

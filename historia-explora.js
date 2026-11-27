@@ -5,6 +5,7 @@ import { crearEsclusa } from './historia-esclusa.js'
 import { crearTerreno, MUNDO, SAGAN } from './historia-terreno.js'
 import { transmision } from './historia-radio.js'
 import { crearEstacionSagan } from './historia-sagan.js'
+import { COMANDOS } from './comandos.js'
 
 // Everything is local to the wreck. No pointer lock, network requests or renderer ownership.
 export function crearExploracion(T, scene, camera, renderer, ui={}) {
@@ -36,7 +37,8 @@ export function crearExploracion(T, scene, camera, renderer, ui={}) {
   }
   const hemi=new T.HemisphereLight(0xffe1be,0x8c6d62,1.35);world.add(hemi)
   const sun=new T.DirectionalLight(0xffdcab,2.1);sun.position.set(-26,17,-35);world.add(sun)
-  for(const [x,z,col] of [[-.85,.6,0xc9efff],[.55,-2.7,0xffa15e]]){const p=new T.PointLight(col,11,6,2);p.position.set(x,2.75,z);world.add(p)}
+  const lucesCabina=[[-.85,.6,0xc9efff],[.55,-2.7,0xffa15e]].map(([x,z,col])=>{const p=new T.PointLight(col,11,6,2);p.position.set(x,2.75,z);world.add(p);return p})
+  let luzCabinaOn=true
   // Cabin interior: independent deck plates, marked escape lane, frames and exposed lines.
   for(let j=0;j<10;j++){
     const z=-3.61+j*.63
@@ -142,7 +144,7 @@ export function crearExploracion(T, scene, camera, renderer, ui={}) {
 
   const canvas=renderer.domElement,oldTouch=canvas.style?.touchAction
   if(canvas.style)canvas.style.touchAction='none'
-  let x=0,z=1.34,y=0,vy=0,airborne=false,yaw=0,pitch=-.045,mx=0,mz=0,outside=false,hasKit=false,hasTablet=false,scanned=false,anchored=false,assembled=false,disposed=false,bob=0,walking=false,sprinting=false,drag=null,target=null
+  let x=0,z=1.34,y=0,vy=0,airborne=false,yaw=0,pitch=-.045,mx=0,mz=0,outside=false,hasKit=false,hasTablet=false,scanned=false,anchored=false,assembled=false,disposed=false,bob=0,walking=false,sprinting=false,drag=null,target=null,ejeX=0,ejeZ=0,turboMando=false,frenando=false,objetivoActual=''
   let placing=0,unfolding=0,lastCycle=''
   // Rover de superficie: se despliega junto al jugador y se conduce en tercera persona.
   const rover=new T.Group();rover.name='rover de superficie';rover.visible=false;world.add(rover)
@@ -280,13 +282,17 @@ export function crearExploracion(T, scene, camera, renderer, ui={}) {
     else if(anchored)objetivo=assembled?'Mira la baliza instalada y replíegala para llevarla a Sagan.':'Mira la base que anclaste y acopla el mástil.'
     else if(!kitReplegado&&!conduciendo)objetivo='Mira suelo despejado para montar la baliza; podrás replegarla para el viaje.'
     else objetivo=`Lleva la baliza a Sagan: ${textoDistancia()} al ${rumboSagan()}. ${conduciendo?'Conduce con W/S y gira con A/D.':roverEstado==='guardado'?'Pulsa V para desplegar el rover.':'Sube al rover con V.'}`
-    say('objective',objetivo)
+    objetivoActual=objetivo;say('objective',objetivo)
     say('inventory',[ubicacionPathfinder==='transporte'?`Pathfinder ${conduciendo?'en el rover':'en mano'}`:ubicacionPathfinder==='exterior'?'Pathfinder montado fuera de la nave':'',hasTablet?'Tablet · mapa':'',hasKit?`Baliza ${estadoBaliza()}`:'',roverEstado==='guardado'?'':'Rover desplegado',scanned?'Traje verificado':''].filter(Boolean).join('  /  ')||'Sin equipo recogido')}
-  const actions=[...esclusa.actions,{...puente.accion,run(){
-    const enlazada=enlaceOrbitalListo()
-    say('status',puente.diagnosticar(enlazada))
-    if(enlazada&&!demoCompletada){demoCompletada=true;ui.finDemo?.()}
-  }},
+  // La consola del puente y la voz comparten esta única puerta: el final de la
+  // demo se abre una sola vez y el texto siempre sale de la misma consola.
+  function diagnosticoVuelo(){
+    const enlazada=enlaceOrbitalListo(),disparado=enlazada&&!demoCompletada
+    const texto=puente.diagnosticar(enlazada)
+    if(disparado){demoCompletada=true;ui.finDemo?.()}
+    return {texto,enlazada,finDemo:disparado}
+  }
+  const actions=[...esclusa.actions,{...puente.accion,run(){say('status',diagnosticoVuelo().texto)}},
     {id:'recogerPathfinder',get pt(){return [SAGAN.x,height(SAGAN.x,SAGAN.z)+1,SAGAN.z]},range:4.5,text:'Recoger Pathfinder',
       active:()=>actoFinalizado&&!conduciendo&&ubicacionPathfinder==='sagan',
       run(){ubicacionPathfinder='transporte';actualizarEnlaceExterior();say('status','Pathfinder asegurado para el traslado.')}},
@@ -383,8 +389,11 @@ export function crearExploracion(T, scene, camera, renderer, ui={}) {
       const h=dt/pasos,traccion=dinamica.contactos/6
       if(traccion){
         const pendiente=dinamica.longitudinal
-        roverVel+=(f*(turbo?16:9)+GRAVEDAD_MARTE*pendiente/Math.hypot(1,pendiente))*h*traccion
-        if(Math.abs(f)<.04)roverVel*=Math.exp(-1.3*h*traccion)
+        if(frenando)roverVel*=Math.exp(-5.5*h)
+        else{
+          roverVel+=(f*(turbo?16:9)+GRAVEDAD_MARTE*pendiente/Math.hypot(1,pendiente))*h*traccion
+          if(Math.abs(f)<.04)roverVel*=Math.exp(-1.3*h*traccion)
+        }
         roverVel=clamp(roverVel,-5,turbo?26:18)
         const sentido=roverVel<-.2?-1:1
         roverYaw-=r*h*(.9+.6*Math.min(1,Math.abs(roverVel)/8))*sentido*traccion
@@ -399,10 +408,12 @@ export function crearExploracion(T, scene, camera, renderer, ui={}) {
     suspension.reiniciar(roverX,roverZ,roverYaw);poseRover(0)
     conduciendo=true;roverEstado='conduciendo';x=roverX;z=roverZ;y=dinamica.y;airborne=false;walking=false;miradaYaw=0;miradaPitch=-.08
     carried.visible=false;estibarPathfinder();ui.vehiculo?.(roverEstado)
-    say('status','Rover en marcha. W/S acelerar, A/D girar, Shift turbo, V bajar.')
+    const texto='Rover en marcha. W/S acelerar, A/D girar, Shift turbo, V bajar.'
+    say('status',texto)
+    return {ok:true,texto}
   }
   function bajarRover(){
-    if(!dinamica.contactos){say('status','Espera a que las ruedas vuelvan a tocar el suelo para bajar.');return}
+    if(!dinamica.contactos){const texto='Espera a que las ruedas vuelvan a tocar el suelo para bajar.';say('status',texto);return {ok:false,texto}}
     roverVel=0
     const pruebas=[[Math.cos(roverYaw)*2.6,-Math.sin(roverYaw)*2.6],[-Math.cos(roverYaw)*2.6,Math.sin(roverYaw)*2.6],[Math.sin(roverYaw)*3.2,Math.cos(roverYaw)*3.2]]
     let destino=null
@@ -410,27 +421,153 @@ export function crearExploracion(T, scene, camera, renderer, ui={}) {
     if(!destino)destino=[roverX,roverZ]
     x=destino[0];z=destino[1];y=floorY(x,z);conduciendo=false;roverEstado='desplegado';yaw=roverYaw;pitch=-.06;miradaYaw=0
     carried.visible=hasKit&&!anchored;estibarPathfinder();ui.vehiculo?.(roverEstado)
-    say('status','Has bajado del rover. Pulsa V a su lado para volver a conducir.')
+    const texto='Has bajado del rover. Pulsa V a su lado para volver a conducir.'
+    say('status',texto)
+    return {ok:true,texto}
+  }
+  // El rover mide 2,5 m: su centro tiene que quedar lejos del casco y de la
+  // rampa. Sin esta puerta, desplegarlo desde el umbral lo hacía aparecer
+  // dentro de la nave o sobre la rampa.
+  function fueraDeCasco(px,pz){return Math.abs(px)>=4.6||pz<=-8.4||pz>=Z_FIN_CASCO+3}
+  function desplegarRover(){
+    if(disposed)return {ok:false,texto:'El sistema está fuera de servicio.'}
+    if(roverEstado!=='guardado')return {ok:false,texto:'El rover ya está desplegado.'}
+    if(!exteriorZone){const texto='El rover está en la bodega. Sal al exterior para desplegarlo.';say('status',texto);return {ok:false,texto}}
+    const pruebas=[
+      [-Math.sin(yaw)*4.2,-Math.cos(yaw)*4.2],[Math.cos(yaw)*4.2,-Math.sin(yaw)*4.2],
+      [-Math.cos(yaw)*4.2,Math.sin(yaw)*4.2],[Math.sin(yaw)*4.2,Math.cos(yaw)*4.2],
+      [Math.sin(yaw+Math.PI/4)*4.2,-Math.cos(yaw+Math.PI/4)*4.2],
+      [Math.sin(yaw-Math.PI/4)*4.2,-Math.cos(yaw-Math.PI/4)*4.2],
+    ]
+    let punto=null
+    for(const [dx,dz] of pruebas){const rx=x+dx,rz=z+dz;if(allowed(rx,rz,1.4)&&fueraDeCasco(rx,rz)){punto=[rx,rz];break}}
+    if(!punto){const texto='No hay sitio despejado para desplegar el rover lejos del casco y la rampa.';say('status',texto);return {ok:false,texto}}
+    roverX=punto[0];roverZ=punto[1];roverYaw=yaw;roverVel=0;rover.visible=true;roverEstado='desplegado'
+    return {ok:true,texto:'Rover desplegado. Pulsa V a su lado para subir.'}
   }
   function vehicle(){
-    if(disposed)return
-    if(conduciendo){bajarRover();return}
+    if(disposed)return {ok:false,texto:'El sistema está fuera de servicio.'}
+    if(conduciendo)return bajarRover()
     if(roverEstado==='guardado'){
-      if(!exteriorZone){say('status','El rover está en la bodega. Sal al exterior para desplegarlo.');return}
-      const pruebas=[[Math.cos(yaw)*3.8,-Math.sin(yaw)*3.8],[-Math.sin(yaw)*4.6,-Math.cos(yaw)*4.6],[-Math.cos(yaw)*3.8,Math.sin(yaw)*3.8]]
-      let punto=null
-      for(const [dx,dz] of pruebas){const rx=x+dx,rz=z+dz;if(allowed(rx,rz,1.4)){punto=[rx,rz];break}}
-      if(!punto){say('status','No hay sitio despejado para desplegar el rover.');return}
-      roverX=punto[0];roverZ=punto[1];roverYaw=yaw;roverVel=0;rover.visible=true;roverEstado='desplegado'
-      subirRover();return
+      const desplegado=desplegarRover()
+      if(!desplegado.ok)return desplegado
+      return subirRover()
     }
+    if(!exteriorZone){const texto='El rover está fuera, junto al casco. Sal por la esclusa para subir.';say('status',texto);return {ok:false,texto}}
     const distancia=Math.hypot(x-roverX,z-roverZ)
-    if(distancia>4.6){say('status',`El rover está a ${Math.round(distancia)} m. Acércate para subir.`);return}
-    subirRover()
+    if(distancia>4.6){const texto=`El rover está a ${Math.round(distancia)} m. Acércate para subir.`;say('status',texto);return {ok:false,texto}}
+    return subirRover()
   }
   function jump(){if(disposed||conduciendo||airborne)return;vy=4.3;airborne=true}
   function sprint(activo){sprinting=Boolean(activo)}
   function mapa(){if(disposed)return;if(!hasTablet){say('status','Necesitas la tablet del banco EVA para consultar el mapa.');return}ui.mapa?.()}
+  // --- API de voz y mando ------------------------------------------------
+  // La consola OBC y el mando Xbox entran por aquí; ninguna de las dos
+  // reimplementa las puertas de la misión. `comando` es síncrono y devuelve
+  // {id, texto, tono} (más extras acordados con el HUD).
+  function ejes(ax,az){ejeX=Number.isFinite(ax)?clamp(ax,-1,1):0;ejeZ=Number.isFinite(az)?clamp(az,-1,1):0}
+  function mandoTurbo(activo){turboMando=Boolean(activo)}
+  function frenar(activo){frenando=Boolean(activo)}
+  function recentrar(){if(disposed)return;if(conduciendo){miradaYaw=0;miradaPitch=-.08;altoCamara=null}else pitch=0;pose()}
+  const responder=(id,texto,tono='ok',extra={})=>({id,texto,tono,...extra})
+  function comando(id){
+    if(disposed)return responder(id,'El sistema está fuera de servicio.','error')
+    if(ui.paused?.()===true)return responder(id,'La partida está en pausa.','aviso')
+    if(turnoRadio>=0)return responder(id,'Hay una transmisión en curso; espera a que termine.','aviso')
+    switch(id){
+      case 'diagnostico':{
+        if(exteriorZone)return responder(id,'El diagnóstico de vuelo solo puede leerse desde dentro del casco. Vuelve a la nave.','aviso')
+        const r=diagnosticoVuelo()
+        goals()
+        return responder(id,r.texto,r.enlazada?'ok':'info',{finDemo:r.finDemo})
+      }
+      case 'rover':{
+        if(conduciendo)return responder(id,'Ya conduces el rover.','aviso')
+        if(roverEstado==='guardado'){
+          if(!exteriorZone)return responder(id,'El rover está en la bodega. Sal al exterior para desplegarlo.','aviso')
+          const desplegado=desplegarRover()
+          if(!desplegado.ok)return responder(id,desplegado.texto,'aviso')
+          subirRover();goals()
+          return responder(id,'Rover desplegado. Estás a bordo; W y S aceleran, A y D giran.','ok',{accion:'rover'})
+        }
+        const distancia=Math.hypot(x-roverX,z-roverZ)
+        if(!exteriorZone)return responder(id,`El rover sigue desplegado fuera, a ${Math.round(distancia)} m de la nave.`,'aviso')
+        return responder(id,`El rover ya está desplegado a ${Math.round(distancia)} m. La voz no sube a bordo; usa V junto a él.`,'aviso')
+      }
+      case 'tierra':{
+        if(exteriorZone)return responder(id,'La radio orbital solo alcanza desde el puente de mando. Vuelve a la nave.','aviso')
+        if(z<Z_INICIO_PUENTE)return responder(id,'Estoy en la cabina trasera. Acércate al puente de mando, a proa, para intentar el enlace con Tierra.','aviso')
+        if(!enlaceOrbitalListo()){
+          if(!actoFinalizado)return responder(id,'Intento de transmisión: sin estación de superficie. La baliza sigue en Sagan y la antena no alcanza.','aviso')
+          const faltan=[!balizaMontada?'la baliza':null,ubicacionPathfinder!=='exterior'?'Pathfinder':null].filter(Boolean)
+          return responder(id,`Intento de transmisión: todavía ${faltan.length>1?'faltan':'falta'} ${faltan.join(' y ')||'la estación exterior'} en los soportes exteriores.`,'aviso')
+        }
+        const lineas=[
+          {emisor:'OBC',texto:'Canal orbital abierto. Portadora estable.'},
+          {emisor:'Houston',texto:'APEX-04, los recibimos. Hay retardo, pero se oyen alto y claro.'},
+          {emisor:'OBC',texto:'Transmisión completada. Enlace con Tierra en espera.'},
+        ]
+        return responder(id,lineas.map(l=>`${l.emisor}: «${l.texto}»`).join('\n'),'ok',{lineas})
+      }
+      case 'mision':{
+        if(!objetivoActual)goals()
+        return responder(id,`Objetivo actual: ${objetivoActual||'explorar Ares Vallis.'}`,'info',{objetivo:objetivoActual})
+      }
+      case 'traje':{
+        const texto=scanned
+          ?'Traje sellado y presión estable. Contusión leve en el hombro. El traje no lleva termómetro exterior, así que no tengo lectura de temperatura.'
+          :'Traje sellado, sin alarmas de presión. Aún no has pasado el escáner médico. El traje no lleva termómetro exterior, así que no tengo lectura de temperatura.'
+        return responder(id,texto,'info')
+      }
+      case 'estadoRover':{
+        if(roverEstado==='guardado')return responder(id,'Rover guardado en la bodega. Seis ruedas apoyadas y sin telemetría de marcha.','info')
+        const ruedas=dinamica.contactos,altura=dinamica.y.toFixed(1).replace('.',','),vel=Math.abs(roverVel).toFixed(1).replace('.',',')
+        if(conduciendo)return responder(id,`Conduciendo a ${vel} m/s. ${ruedas} de 6 ruedas en contacto; chasis a ${altura} m.`,'info')
+        const distancia=Math.round(Math.hypot(x-roverX,z-roverZ))
+        return responder(id,`Rover desplegado a ${distancia} m. ${ruedas} de 6 ruedas en contacto; chasis a ${altura} m.`,'info')
+      }
+      case 'abrirMapa':{
+        if(!hasTablet)return responder(id,'Necesitas la tablet del banco EVA para consultar el mapa.','aviso')
+        if(ui.mapaAbierto?.()===true)return responder(id,'El mapa ya está abierto.','info')
+        mapa()
+        return responder(id,'Mapa de Ares Vallis desplegado.','ok',{accion:'mapa'})
+      }
+      case 'cerrarMapa':{
+        if(ui.mapaAbierto?.()!==true)return responder(id,'El mapa no está abierto.','info')
+        return responder(id,'Cierro el mapa.','ok',{accion:'cerrarMapa'})
+      }
+      case 'silencio':return responder(id,'Entendido. Silencio hasta que me vuelvas a llamar.','ok',{silencio:true})
+      case 'habla':return responder(id,'Voz activa.','ok',{silencio:false})
+      case 'rumbo':{
+        const grados=Math.round(((Math.atan2(SAGAN.x-x,-(SAGAN.z-z))*180/Math.PI)+360)%360)
+        const extra=distanciaSagan()<25?' Ya estás en Sagan.':''
+        return responder(id,`Sagan a ${textoDistancia()} al ${rumboSagan()}, rumbo ${grados}°.${extra}`,'info',{direccion:rumboSagan(),grados})
+      }
+      case 'baliza':{
+        let texto=`Baliza: ${estadoBaliza()}.`
+        if(anchored){const d=Math.round(Math.hypot(x-base.position.x,z-base.position.z));texto+=` A ${d} m de ti.`}
+        return responder(id,texto,'info',{estado:estadoBaliza()})
+      }
+      case 'esclusa':return responder(id,esclusa.resumen(),'info')
+      case 'lucesOn':case 'lucesOff':{
+        if(exteriorZone)return responder(id,'El interruptor de cabina no responde desde el exterior.','aviso')
+        const encender=id==='lucesOn'
+        if(luzCabinaOn===encender)return responder(id,`Las luces ya están ${encender?'encendidas':'apagadas'}.`,'info')
+        luzCabinaOn=encender
+        for(const luz of lucesCabina)luz.intensity=encender?11:0
+        return responder(id,`Luces de cabina ${encender?'encendidas':'apagadas'}.`,'ok',{luces:encender})
+      }
+      case 'tormenta':return responder(id,tormenta?'Tormenta de polvo en curso. Visibilidad reducida y viento contra el casco.':'Sin tormenta sobre Ares Vallis. El polvo se mantiene bajo.',tormenta?'aviso':'info')
+      case 'ayuda':{
+        const lista=COMANDOS.map(c=>({id:c.id,categoria:c.categoria,frase:c.frases[0],descripcion:c.descripcion}))
+        return responder(id,`Puedo atender ${lista.length} comandos. Pide uno por su frase de ejemplo.`,'info',{lista})
+      }
+      case 'presente':return responder(id,'En línea. Siempre.','info')
+      case 'hangar':return responder(id,'No puedo hacer eso, comandante.','aviso')
+      case 'ambiguo':return responder(id,'¿De qué quieres el estado: traje, rover, nave o baliza?','pregunta')
+      default:return responder(id,'No te he entendido. Di «Nostromo» y prueba «ayuda» para ver los comandos.','error')
+    }
+  }
   function update(dt){
     if(disposed)return
     dt=clamp(Number(dt)||0,0,.08)
@@ -441,17 +578,17 @@ export function crearExploracion(T, scene, camera, renderer, ui={}) {
       else planoRadio(dt)
       return
     }
-    if(ui.paused?.()===true){keys.clear();move(0,0);sprinting=false;drag=null;pose();return}
+    if(ui.paused?.()===true){keys.clear();move(0,0);ejeX=ejeZ=0;sprinting=false;drag=null;pose();return}
     esclusa.update(dt);const cycle=esclusa.estado().ciclo
     if(cycle!==lastCycle&&cycle==='despresurizando')ventTime=0;lastCycle=cycle
     if(ventTime<2.5){ventTime=Math.min(2.5,ventTime+dt);const t=ventTime/2.5;airMat.opacity=.21*Math.sin(t*Math.PI);for(const {puff,x:offset,y,z:spread,spin} of vent){puff.visible=t<1;puff.position.set(offset*(.8+2*t)+.48*t,y+.4*t,-3.98-spread*.26-t*(.6+spread*1.3));puff.scale.setScalar(.42+t*(1.15+spin))}}
     if(!conduciendo){if(keys.has('ArrowLeft'))yaw+=dt*1.65;if(keys.has('ArrowRight'))yaw-=dt*1.65}
-    const r=mx+Number(keys.has('KeyD'))-Number(keys.has('KeyA'))+(conduciendo?Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')):0)
-    const f=mz+Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown'))
+    const r=clamp(mx+ejeX+Number(keys.has('KeyD'))-Number(keys.has('KeyA'))+(conduciendo?Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft')):0),-1,1)
+    const f=clamp(mz+ejeZ+Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown')),-1,1)
     if(conduciendo){
-      actualizarRover(r,f,dt,keys.has('ShiftLeft')||keys.has('ShiftRight'))
+      actualizarRover(r,f,dt,keys.has('ShiftLeft')||keys.has('ShiftRight')||turboMando)
     }else{
-      const carrera=sprinting||keys.has('ShiftLeft')||keys.has('ShiftRight')
+      const carrera=sprinting||keys.has('ShiftLeft')||keys.has('ShiftRight')||turboMando
       const mag=Math.max(1,Math.hypot(r,f)),vel=(exteriorZone?2.85:2.02)*(carrera?1.7:1)*dt/mag*(airborne?.55:1)
       const nx=x+(r*Math.cos(yaw)-f*Math.sin(yaw))*vel,nz=z+(-r*Math.sin(yaw)-f*Math.cos(yaw))*vel
       walking=Math.abs(r)+Math.abs(f)>.02;if(walking)bob+=dt*(carrera?12:8)
@@ -496,6 +633,6 @@ export function crearExploracion(T, scene, camera, renderer, ui={}) {
     estacion.dispose();terreno.dispose()
     scene.remove(world);scene.background=old.bg;scene.fog=old.fog;camera.near=old.near;camera.far=old.far;camera.fov=old.fov;camera.updateProjectionMatrix()
     const gs=new Set(),ms=new Set(),ts=new Set();world.traverse(o=>{if(o.geometry&&!o.isSprite)gs.add(o.geometry);if(o.material)for(const m of [].concat(o.material)){ms.add(m);if(m.map)ts.add(m.map)}if(o.isInstancedMesh)o.dispose()});gs.forEach(g=>g.dispose());ms.forEach(m=>m.dispose());ts.forEach(t=>t.dispose())}
-  function estado(){return {x,z,y,yaw,pitch,outside,exteriorZone,actoFinalizado,tormenta,turnoRadio,hasTablet,rover:roverEstado,conduciendo,airborne,llegadaSagan,...telemetriaMision(),...telemetriaRover(),distanciaSagan:distanciaSagan()}}
-  return {update,dispose,interact,move,look,sprint,jump,vehicle,mapa,estado,siguienteRadio,enlaceOrbitalListo}
+  function estado(){return {x,z,y,yaw,pitch,outside,exteriorZone,actoFinalizado,tormenta,turnoRadio,hasTablet,rover:roverEstado,conduciendo,airborne,llegadaSagan,objetivo:objetivoActual,luces:luzCabinaOn,velocidad:conduciendo?roverVel:(walking?(sprinting||keys.has('ShiftLeft')||keys.has('ShiftRight')||turboMando?4.8:2.85):0),frenando,turboMando,miradaYaw,miradaPitch,...telemetriaMision(),...telemetriaRover(),distanciaSagan:distanciaSagan()}}
+  return {update,dispose,interact,move,look,sprint,jump,vehicle,mapa,estado,comando,ejes,mandoTurbo,frenar,recentrar,siguienteRadio,enlaceOrbitalListo}
 }

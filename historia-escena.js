@@ -1,5 +1,6 @@
 import * as T from './vendor/three/three.module.min.js'
 import { crearCine } from './historia-cine.js'
+import { conectarOBC, tonoOBC } from './cabina-obc.js'
 import { crearFinDemo } from './fin-demo.js'
 import { crearExploracion } from './historia-explora.js'
 import { DURACION, ejeTactil } from './historia-guion.js'
@@ -36,7 +37,7 @@ export function crearCampana({ reduced = false } = {}) {
   resize()
   const ro = new ResizeObserver(resize)
   ro.observe(host)
-  let cine, eva, raf = 0, previous = null, elapsed = 0, ended = false
+  let cabina, cine, eva, raf = 0, previous = null, elapsed = 0, ended = false
   let fuera = false, vehiculoEstado = 'guardado'
   let pausaAbierta = false, mapaAbierto = false
   let ultima = { x: 0, z: 1.34, y: 0, rumbo: 0, conduciendo: false, caminando: false, velocidad: 0, distanciaSagan: 2000, direccionSagan: 'sureste' }
@@ -88,7 +89,8 @@ export function crearCampana({ reduced = false } = {}) {
     },
     tablet(v) { mapaButton.hidden = !v },
     mapa() { alternarMapa() },
-    paused() { return final.abierto || mapaAbierto || pausaAbierta },
+    mapaAbierto() { return mapaAbierto },
+    paused() { return final.abierto || mapaAbierto || pausaAbierta || $('obc-editor')?.open || $('guia-controles')?.open },
     position(datos) {
       ultima = datos
       actualizarRuta(datos)
@@ -433,7 +435,26 @@ export function crearCampana({ reduced = false } = {}) {
     if ($('pausa-rumbo')) $('pausa-rumbo').checked = preferencias.rumbo
     actualizarRuta(ultima)
   }
-  document.addEventListener('apex:preferencias', sincronizarPreferencias, opts)
+  window.addEventListener('apex:preferencias', sincronizarPreferencias, opts)
+
+  const raices = { editor:$('obc-editor'), guia:$('guia-controles'), final:$('fin-demo'), radio, mapa:tabletDialog, pausa }
+  function zonaOBC() {
+    if (ended || !eva) return 'bloqueado'
+    for (const id of ['editor','guia','final','radio','mapa']) if (raices[id]?.open) return id
+    return pausaAbierta ? 'pausa' : 'juego'
+  }
+  function abrirGuia() { abrirPausa(); pausa.querySelector('[data-guia-controles]')?.click() }
+  function accionMenu(z,id) {
+    if (z==='radio' || z==='final') return false // la decisión es explícita: la navegación sí funciona
+    if (id==='guia' && z==='pausa') { abrirGuia(); return true }
+    if (id==='volver' || id==='pausa' || (id==='mapa' && z==='mapa')) {
+      if(z==='editor'||z==='guia')raices[z].close()
+      else if(z==='mapa')cerrarMapa()
+      else if(z==='pausa')cerrarPausa()
+      return true
+    }
+    return false
+  }
 
   document.addEventListener('visibilitychange', () => { previous = null; resetPad(); cine?.audioEnabled?.(!muted && !document.hidden); mix() }, opts)
 
@@ -451,6 +472,8 @@ export function crearCampana({ reduced = false } = {}) {
     mapaButton.hidden = true
     eva = crearExploracion(T, scene, camera, renderer, ui)
     ambiente(); canvas.focus({ preventScroll: true }); previous = null
+    cabina=conectarOBC({sim:eva,zona:zonaOBC,raizMenu:z=>raices[z],accionMenu,pausar:abrirPausa,guia:abrirGuia,cerrarMapa,
+      alTono:tipo=>{if(!muted){ambiente();tonoOBC(audio,volumen,tipo)}}})
   }
 
   function tick(now) {
@@ -465,6 +488,8 @@ export function crearCampana({ reduced = false } = {}) {
         if (elapsed >= DURACION) wake()
       }
       if (eva) {
+        cabina?.actualizar(Math.min(dt,.1))
+        if(ended)return // El mando puede haber elegido volver al globo.
         eva.update(Math.min(dt, .1)); wakeTime += dt
         if (!reduced && wakeTime < 1.4) {
           // First breath after impact. Motion is applied only after the controller sets its pose.
@@ -481,6 +506,7 @@ export function crearCampana({ reduced = false } = {}) {
   function escape() {
     if (final.abierto || radio.open) return true
     if (!eva) return false
+    if (raices.editor?.open || raices.guia?.open) return true
     if (mapaAbierto) { cerrarMapa(); return true }
     if (pausaAbierta) { cerrarPausa(); return true }
     abrirPausa(); return true
@@ -492,7 +518,7 @@ export function crearCampana({ reduced = false } = {}) {
     if (final.abierto) final.cerrar()
     if (radio.open) radio.close()
     panel.removeAttribute('data-radio')
-    cancelAnimationFrame(raf); events.abort(); ro.disconnect(); resetPad()
+    cancelAnimationFrame(raf); cabina?.dispose(); events.abort(); ro.disconnect(); resetPad()
     if (mapaAbierto) { mapaAbierto = false; if (tabletDialog?.open) tabletDialog.close() }
     pausaAbierta = false; pausa.hidden = true
     cine?.dispose(); eva?.dispose(); audio?.close().catch(() => {}); renderer.dispose(); renderer.forceContextLoss()

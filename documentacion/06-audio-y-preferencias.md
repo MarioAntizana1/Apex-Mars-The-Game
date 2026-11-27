@@ -37,6 +37,12 @@ Valores:
 | `sonido` | `true` | Activa/desactiva viento, pasos, motor y avisos |
 | `ciencia` | `true` | Muestra/oculta las capas de imágenes orbitales del globo (Jezero, Olimpo, alrededores) |
 | `rumbo` | `false` | Muestra/oculta la flecha de rumbo a Sagan en el HUD y la línea de ruta del mapa |
+| `voz` | `'apagada'` | `apagada`, `ptt` (F/LB) o `siempre` (palabra de activación) |
+| `idiomaVoz` | `'es-ES'` | Idioma que se pide al reconocimiento: `es-ES`, `es-MX` o `es-PE` |
+| `vozHablada` | `false` | Lee las respuestas con la voz del sistema, si existe |
+| `mando` | `true` | Lee los mandos Xbox conectados |
+
+El OBC añade `voz` (apagada, pulsar para hablar o siempre), `idiomaVoz`, `vozHablada` y `mando`. Véase [Nostromo y mando](13-voz-y-mando.md).
 
 - `leerPreferencias()` devuelve los valores seguros; si el almacenamiento no está
   disponible (modo privado, Node) devuelve los valores base y no rompe.
@@ -52,14 +58,14 @@ Valores:
 
 ## Dónde se ven las opciones
 
-- Menú de inicio → **Opciones** (Jezero): las tres casillas.
-- Menú de pausa → **Opciones**: las tres casillas.
+- Menú de inicio → **Opciones** (Jezero): ajustes de juego, OBC y mando.
+- Menú de pausa → **Opciones**: ajustes de juego, OBC y mando.
 - La barra de la historia tiene **Audio** para silenciar al vuelo.
 - La tablet tiene su propio zoom/centro; no es una preferencia persistente.
 
 ## Límites conocidos
 
-- Solo hay sonido ambiente sintetizado; no hay música ni voces.
+- Los avisos del OBC son sintetizados. La lectura opcional usa las voces disponibles del sistema; no se distribuyen grabaciones.
 - No hay control de volumen fino, solo activar/desactivar y el volumen relativo
   interior/exterior.
 - El pitido de aviso se dispara con cada mensaje de estado; si resulta molesto se

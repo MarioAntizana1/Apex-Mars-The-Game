@@ -5,6 +5,7 @@ import { crearVuelo } from './vuelo.js?v=cabina'
 import { atmosferaMarciana, stylishTiles } from './imagen-marciana.js'
 import { crearHistoria } from './historia.js'
 import { crearMenu } from './menu.js'
+import { conectarMandoPrincipal } from './menu-mando.js'
 
 const C = window.Cesium
 const status = document.querySelector('#estado')
@@ -171,6 +172,7 @@ async function start() {
     ciencia: activa => { for (const capa of capasCientificas) capa.show = activa },
     detenerVuelo: () => { stopPilot(); stopFlyover(); viewer.camera.cancelFlight() },
   })
+  conectarMandoPrincipal(document.getElementById('menu'), document.getElementById('guia-controles'))
   document.addEventListener('apex:historia-abierta', () => menu?.ocultar())
   viewer.scene.postRender.addEventListener(() => {
     if (!flyover) return

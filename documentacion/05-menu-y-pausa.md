@@ -105,8 +105,7 @@ Mientras está abierto, la simulación se pausa (`ui.paused()`), el viento, los
 pasos y el motor se silencian y el foco queda en **Continuar**. `Esc` cierra;
 pulsar el fondo también cierra.
 
-- **Opciones** abre las tres casillas: sonidos, imágenes científicas y flecha de
-  rumbo. Los cambios se guardan y se propagan al menú de inicio.
+- **Opciones** incluye sonidos, imágenes científicas, flecha de rumbo y los [ajustes de voz y mando](13-voz-y-mando.md). Los cambios se guardan y se propagan al menú de inicio.
 - **Créditos** muestra la lista compartida de `creditos.js`: el equipo, las
   fuentes de datos (HiRISE, MOLA, CTX y Viking), los recursos de software
   (CesiumJS y three.js), las tipografías del sistema y los agradecimientos. La

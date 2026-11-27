@@ -9,10 +9,10 @@
   <script>window.CESIUM_BASE_URL='./node_modules/cesium/Build/Cesium/'</script>
   <script src="./node_modules/cesium/Build/Cesium/Cesium.js" defer></script>
   <script src="./interfaz.js?v=2" type="module"></script>
-  <link rel="stylesheet" href="./historia.css?v=eva3d">
+  <link rel="stylesheet" href="./historia.css?v=obc1">
   <link rel="stylesheet" href="./historia-mundo.css">
   <link rel="stylesheet" href="./menu.css">
-  <script src="./globo.js?v=eva3d" type="module"></script>
+  <script src="./globo.js?v=obc1" type="module"></script>
 </head>
 <body>
   <main id="mapa" aria-label="Globo navegable de Marte"></main>
@@ -77,6 +77,28 @@
       <label><input id="opcion-sonido" type="checkbox"> Sonidos</label>
       <label><input id="opcion-ciencia" type="checkbox"> Imágenes científicas</label>
       <label><input id="opcion-rumbo" type="checkbox"> Flecha de rumbo al destino de misión</label>
+      <fieldset class="opcion-grupo">
+        <legend>Voz y mando</legend>
+        <div class="opcion-campo">
+          <label for="opcion-voz">Voz del OBC</label>
+          <select id="opcion-voz" aria-describedby="opcion-voz-privacidad">
+            <option value="apagada">Apagada</option>
+            <option value="ptt">Pulsar para hablar (F o LB)</option>
+            <option value="siempre">Siempre escuchando «Nostromo»</option>
+          </select>
+        </div>
+        <div class="opcion-campo">
+          <label for="opcion-idioma-voz">Idioma del reconocimiento</label>
+          <select id="opcion-idioma-voz">
+            <option value="es-ES">Español (España)</option>
+            <option value="es-MX">Español (México)</option>
+            <option value="es-PE">Español (Perú)</option>
+          </select>
+        </div>
+        <label><input id="opcion-voz-hablada" type="checkbox"> Voz hablada del OBC (experimental)</label>
+        <label><input id="opcion-mando" type="checkbox"> Mando de Xbox</label>
+        <p class="opcion-nota" id="opcion-voz-privacidad">El micrófono solo se activa con «Pulsar para hablar» o «Siempre escuchando». Con el reconocimiento del navegador, el audio puede enviarse al servicio de voz del navegador; si el equipo ofrece reconocimiento local, el audio no sale de él. El juego no guarda lo que dices.</p>
+      </fieldset>
       <button type="button" id="menu-volver">Volver a los destinos</button>
     </section>
     <section id="menu-creditos" hidden aria-label="Créditos"></section>
@@ -115,19 +137,53 @@
       <nav class="eva-herramientas" aria-label="Herramientas de exploración">
         <button id="eva-mapa" type="button" hidden>Tablet · M</button>
         <button id="eva-vehiculo" type="button" hidden>Desplegar vehículo · V</button>
+        <button id="obc-abrir" type="button" aria-haspopup="dialog" aria-controls="obc-editor">OBC · Escribir</button>
         <button class="eva-touch" id="eva-correr" type="button" aria-pressed="false">Correr</button>
         <button class="eva-touch" id="eva-salto" type="button">Saltar</button>
       </nav>
       <output id="eva-ruta" hidden><span id="eva-ruta-aguja" aria-hidden="true">➤</span><span id="eva-ruta-texto"></span></output>
+      <section id="obc" aria-label="Consola del ordenador de a bordo" data-tono="info" hidden>
+        <div class="obc-cabecera">
+          <span class="obc-marca">OBC · NOSTROMO</span>
+          <span id="obc-estado" class="obc-estado" role="status" aria-live="polite"></span>
+          <button id="obc-micro" type="button" aria-pressed="false" title="Escuchar un comando">Escuchar</button>
+        </div>
+        <p id="obc-texto" class="obc-texto" role="status" aria-live="polite"></p>
+        <div id="obc-nav" class="obc-nav" hidden>
+          <button id="obc-pagina-prev" type="button" aria-label="Página anterior">◀</button>
+          <span id="obc-pagina" class="obc-pagina" aria-live="polite">1/1</span>
+          <button id="obc-pagina-next" type="button" aria-label="Página siguiente">▶</button>
+        </div>
+        <div id="obc-kitt" class="obc-kitt" aria-hidden="true"></div>
+        <p id="obc-ayuda" class="obc-ayuda">Mantén F para hablar · botón OBC para escribir</p>
+      </section>
       <dialog id="tablet" aria-labelledby="tablet-titulo">
         <p class="tablet-id">APEX / CARTOGRAFÍA DE CAMPO</p><h2 id="tablet-titulo">Mapa de Ares Vallis</h2>
         <canvas id="tablet-carta" width="720" height="480" aria-label="Mapa orientado al norte: nave, explorador y estación Sagan"></canvas>
         <div class="tablet-zoom"><button id="tablet-alejar" type="button" aria-label="Alejar el mapa">−</button><button id="tablet-acercar" type="button" aria-label="Acercar el mapa">+</button></div>
         <p class="tablet-leyenda" id="tablet-local-leyenda"><span>▲ Tu posición</span><span>□ Nave</span><span>◆ Sagan</span><span class="tablet-escala" id="tablet-escala"></span></p>
         <p id="tablet-lectura"></p><small>Estación científica Carl Sagan · Mars Pathfinder y Sojourner · mapa norte-arriba</small>
-        <p id="tablet-capa" aria-live="polite"></p><footer><button id="tablet-planeta" type="button" aria-pressed="false">Marte completo</button><button id="tablet-ruta" type="button">Centrar en Sagan</button><button id="tablet-cerrar" type="button">Cerrar mapa</button></footer>
+        <p id="tablet-capa" aria-live="polite"></p><footer><button id="tablet-planeta" type="button" aria-pressed="false">Marte completo</button><button id="tablet-ruta" type="button">Centrar en Sagan</button><button id="tablet-obc" type="button" aria-haspopup="dialog" aria-controls="obc-editor">OBC · Escribir</button><button id="tablet-cerrar" type="button">Cerrar mapa</button></footer>
       </dialog>
-      <p class="eva-ayuda"><b>WASD</b> mover · <b>Arrastrar</b> mirar · <b>E</b> usar · <b>Shift</b> correr · <b>Espacio</b> saltar · <b>V</b> vehículo · <b>M</b> mapa</p>
+      <dialog id="obc-editor" aria-labelledby="obc-editor-titulo" aria-describedby="obc-editor-ayuda">
+        <p class="obc-marca">OBC · NOSTROMO</p>
+        <h2 id="obc-editor-titulo">Comando escrito</h2>
+        <form id="obc-editor-form">
+          <label for="obc-entrada">Comando</label>
+          <input id="obc-entrada" name="comando" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Nostromo, dame diagnóstico de nave">
+          <p class="obc-ejemplos">Ejemplos:
+            <button type="button" data-obc-ejemplo="Nostromo, dame diagnóstico de nave">diagnóstico</button>
+            <button type="button" data-obc-ejemplo="Nostromo, despliega el rover">rover</button>
+            <button type="button" data-obc-ejemplo="Nostromo, intenta transmisión con la Tierra">Tierra</button>
+          </p>
+          <p class="opcion-nota" id="obc-editor-ayuda">El texto se envía al OBC como si lo hubieras dicho. Nada se guarda; el micrófono no se activa.</p>
+          <div class="obc-acciones">
+            <button id="obc-enviar" type="submit">Enviar</button>
+            <button id="obc-cerrar-editor" type="button">Cancelar</button>
+          </div>
+        </form>
+      </dialog>
+      <p class="eva-ayuda" id="eva-ayuda"><b>WASD</b> mover · <b>Arrastrar</b> mirar · <b>E</b> usar · <b>Shift</b> correr · <b>Espacio</b> saltar · <b>V</b> vehículo · <b>M</b> mapa</p>
       <p class="eva-ayuda-tactil">Mueve el mando para caminar. Arrastra el paisaje para mirar.</p>
       <div id="eva-pad" aria-label="Control táctil de marcha"><span></span></div>
     </section>
@@ -153,6 +209,28 @@
           <label><input id="pausa-sonido" type="checkbox"> Sonidos</label>
           <label><input id="pausa-ciencia" type="checkbox"> Imágenes científicas</label>
           <label><input id="pausa-rumbo" type="checkbox"> Flecha de rumbo al destino de misión</label>
+          <fieldset class="opcion-grupo">
+            <legend>Voz y mando</legend>
+            <div class="opcion-campo">
+              <label for="pausa-voz">Voz del OBC</label>
+              <select id="pausa-voz" aria-describedby="pausa-voz-privacidad">
+                <option value="apagada">Apagada</option>
+                <option value="ptt">Pulsar para hablar (F o LB)</option>
+                <option value="siempre">Siempre escuchando «Nostromo»</option>
+              </select>
+            </div>
+            <div class="opcion-campo">
+              <label for="pausa-idioma-voz">Idioma del reconocimiento</label>
+              <select id="pausa-idioma-voz">
+                <option value="es-ES">Español (España)</option>
+                <option value="es-MX">Español (México)</option>
+                <option value="es-PE">Español (Perú)</option>
+              </select>
+            </div>
+            <label><input id="pausa-voz-hablada" type="checkbox"> Voz hablada del OBC (experimental)</label>
+            <label><input id="pausa-mando" type="checkbox"> Mando de Xbox</label>
+            <p class="opcion-nota" id="pausa-voz-privacidad">El micrófono solo se activa a propósito. Con el reconocimiento del navegador el audio puede enviarse a su servicio; si el equipo ofrece reconocimiento local, no sale de él. El juego no guarda lo que dices.</p>
+          </fieldset>
           <button id="pausa-opciones-volver" type="button">Volver al menú de pausa</button>
         </section>
         <section id="pausa-creditos" hidden aria-label="Créditos"></section>
@@ -169,6 +247,11 @@
     <p>Conduce con <kbd>W</kbd>/<kbd>S</kbd>, gira con <kbd>A</kbd>/<kbd>D</kbd> y mantén <kbd>Shift</kbd> para el turbo. Usa <kbd>V</kbd> para bajar o para volver a subir junto al rover.</p>
     <h3>Pantalla táctil y pausa</h3>
     <p>Usa el mando para moverte y arrastra el paisaje para mirar. Toca la acción que aparece al apuntar. Los botones permiten correr, saltar y, cuando estén disponibles, consultar la tablet o usar el vehículo. En exploración, <strong>Menú</strong> o <kbd>Esc</kbd> abre la pausa; <strong>Continuar</strong> vuelve al juego.</p>
+    <h3>Voz y consola del OBC</h3>
+    <p>Activa la voz en <strong>Opciones → Voz del OBC</strong>. Di <strong>«Nostromo»</strong> o <strong>«Nostrosmo»</strong> y espera el barrido; después, un comando como «dame diagnóstico de nave», «despliega el rover» o «intenta transmisión con la Tierra». También puedes mantener <kbd>F</kbd> (o <kbd>LB</kbd> en el mando) y decir solo el comando. Sin micrófono, el botón <strong>OBC · Escribir</strong> abre la misma consola y acepta los comandos escritos.</p>
+    <p>El micrófono solo escucha mientras la voz está activada. Con el reconocimiento del navegador, el audio puede enviarse a su servicio; si el equipo ofrece reconocimiento local, no sale de él. El juego no guarda lo que dices.</p>
+    <h3>Mando de Xbox</h3>
+    <p>Conecta el mando y pulsa un botón para que el navegador lo detecte. <kbd>A</kbd> usa o interactúa, <kbd>B</kbd> salta, <kbd>X</kbd> despliega o conduce el rover, <kbd>Y</kbd> abre la tablet, <kbd>LT</kbd>/<kbd>RT</kbd> frenan o aceleran y <kbd>LB</kbd> mantiene la voz. <kbd>Start</kbd> abre la pausa y <kbd>View</kbd> esta guía. En los menús, el D-pad mueve el foco y <kbd>A</kbd> confirma.</p>
     <h3>Globo y vuelo libre</h3>
     <p>En el globo, arrastra para navegar y usa la rueda o pellizca para acercarte. En vuelo, <kbd>W</kbd>/<kbd>S</kbd> inclinan el morro, <kbd>A</kbd>/<kbd>D</kbd> giran y <kbd>R</kbd>/<kbd>F</kbd> ajustan el empuje. Despega manteniendo <kbd>R</kbd> y <kbd>W</kbd>. En pantalla táctil, mantén <strong>+</strong> y <strong>↑</strong>.</p>
     <p><kbd>B</kbd> frena, <kbd>C</kbd> centra la vista, <kbd>P</kbd> pausa o reanuda y <kbd>Esc</kbd> sale del vuelo.</p>

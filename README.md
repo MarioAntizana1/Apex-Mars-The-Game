@@ -31,19 +31,22 @@ También funciona en cualquier servidor estático o en GitHub Pages (rama
 
 ## Controles
 
-| Acción | Teclado / ratón | Táctil |
-| --- | --- | --- |
-| Caminar | `W` `A` `S` `D` o flechas | Joystick izquierdo |
-| Mirar | Arrastrar sobre el terreno | Arrastrar |
-| Correr | Mantener `Shift` | Botón **Correr** |
-| Saltar | `Espacio` | Botón **Saltar** |
-| Interactuar / recoger / montar | `E` | Botón contextual |
-| Desplegar / conducir / bajar del rover | `V` | Botón **Vehículo** |
-| Mapa de la tablet | `M` | Botón **Tablet** |
-| Pausa / menú de cristal | `Esc` o **Menú** | **Menú** |
-| Guía de controles | Botón **Controles** (menú inicial y pausa) | Igual |
+| Acción | Teclado / ratón | Mando Xbox | Táctil |
+| --- | --- | --- | --- |
+| Caminar | `W` `A` `S` `D` o flechas | Stick izquierdo | Joystick izquierdo |
+| Mirar | Arrastrar sobre el terreno | Stick derecho | Arrastrar |
+| Correr | Mantener `Shift` | `RT` | Botón **Correr** |
+| Saltar | `Espacio` | `B` | Botón **Saltar** |
+| Interactuar / recoger / montar | `E` | `A` | Botón contextual |
+| Desplegar / conducir / bajar del rover | `V` | `X` | Botón **Vehículo** |
+| Mapa de la tablet | `M` | `Y` | Botón **Tablet** |
+| Pausa / menú de cristal | `Esc` o **Menú** | `Start` | **Menú** |
+| Guía de controles | Botón **Controles** (menú inicial y pausa) | `View` | Igual |
 | Mapa: acercar / alejar | Botones `+` / `−` | Igual |
-| Rover: acelerar / girar | `W`/`S`, `A`/`D`; `Shift` turbo | Botón **Vehículo** + joystick |
+| Rover: acelerar / girar | `W`/`S`, `A`/`D`; `Shift` turbo | Sticks; `RT` turbo | Botón **Vehículo** + joystick |
+| Voz del OBC | Mantener `F` o botón **OBC · Escribir** | Mantener `LB` | Botón **OBC · Escribir** |
+
+**Voz y mandos Xbox:** en Opciones activa el micrófono o usa **OBC · Escribir**. Di «Nostromo» o «Nostrosmo», espera el barrido y pide «Dame diagnóstico de nave». F o LB permiten hablar directamente. Dos mandos Xbox pueden manejar el mismo astronauta. [Órdenes, controles y privacidad](documentacion/13-voz-y-mando.md).
 
 ## Qué incluye
 
@@ -81,6 +84,11 @@ También funciona en cualquier servidor estático o en GitHub Pages (rama
 - **Final de la demo**: al confirmar el enlace orbital desde el puente, un fundido
   a negro anuncia el final y pregunta si quieres seguir explorando o volver al
   globo.
+- **OBC «Nostromo»**: micrófono opcional con la palabra de activación, barrido de
+  luces y respuestas escritas y sonoras; si no hay micrófono, los mismos comandos
+  se escriben. Detalle en [Nostromo y mando](documentacion/13-voz-y-mando.md).
+- **Mando de Xbox**: uno o dos mandos comparten el mismo astronauta; los menús y
+  la tablet se recorren con la cruceta y `A`.
 - **Audio sintetizado**: viento, pasos, motor del rover y avisos. Sin archivos de
   audio externos.
 
@@ -124,7 +132,7 @@ reproducible y está documentado en [02-datos-hirise.md](documentacion/02-datos-
 node --test --test-isolation=none
 ```
 
-Son 60 pruebas en Node, sin navegador. Ver [08-pruebas.md](documentacion/08-pruebas.md).
+La suite de Node usa la simulación real y adaptadores de entrada simulados. Ver [08-pruebas.md](documentacion/08-pruebas.md).
 
 ## Créditos
 

@@ -8,7 +8,7 @@ Desde `apex-mars/`:
 node --test --test-isolation=none
 ```
 
-Resultado actual: **60 pruebas, 60 correctas** en menos de un segundo (sin navegador).
+La suite tiene **109 pruebas** e incluye la simulación, el ritual de voz, la consola y mandos simulados. La precisión acústica y la respuesta de los sticks físicos requieren [pruebas con hardware](13-voz-y-mando.md).
 
 ## Qué cubre cada grupo
 
@@ -27,7 +27,13 @@ Resultado actual: **60 pruebas, 60 correctas** en menos de un segundo (sin naveg
 | `creditos.test.mjs` | Equipo, fuentes, recursos y tipografías; misma lista en menú, pausa y `12-creditos.md` |
 | `historia-regolito.test.mjs` | Detalle del suelo repetible, filtrado y sin costura al repetir la baldosa |
 | `historia-rocas.test.mjs` | Seis siluetas, determinismo, altura sobre el DTM, perímetros y presupuesto de dibujo |
-| `preferencias.test.mjs` | Valores seguros y guardado sin almacenamiento |
+| `preferencias.test.mjs` | Valores seguros, guardado sin almacenamiento y claves de voz y mando |
+| `voz.test.mjs` | Normalización, palabra de activación, erratas del reconocedor, negaciones y catálogo completo |
+| `reconocedor.test.mjs` | Permisos, paquete local, PTT, suspensión y resultados tardíos |
+| `comandos.test.mjs` | Catálogo, contexto de misión, rover idempotente y canales del mando |
+| `consola.test.mjs` | Barra del OBC, KITT, editor escrito, paginación, turnos y ajustes |
+| `mando.test.mjs` | Dos mandos, zona muerta, flancos, transferencia, navegación y desconexión |
+| `cabina-obc.test.mjs` | Ritual, consola, micrófono, pausa/mapa y relevo de mandos |
 
 ### Pruebas de la última ampliación
 

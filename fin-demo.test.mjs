@@ -83,7 +83,7 @@ test('seguir explorando reanuda la partida y terminar devuelve al globo', () => 
 
 test('la escena pausa la simulación y desconecta los diálogos al cerrarse', () => {
   assert.match(escena, /finDemo\(\) \{ final\.abrir\(\) \}/)
-  assert.match(escena, /paused\(\) \{ return final\.abierto \|\| mapaAbierto \|\| pausaAbierta \}/)
+  assert.match(escena, /paused\(\) \{ return final\.abierto \|\| mapaAbierto \|\| pausaAbierta \|\| \$\('obc-editor'\)\?\.open/)
   assert.match(escena, /if \(final\.abierto \|\| radio\.open\) return true/)
   assert.match(escena, /if \(final\.abierto\) final\.cerrar\(\)/)
   assert.match(escena, /alSalir\(\) \{ \$\('historia-salir'\)\.click\(\) \}/)

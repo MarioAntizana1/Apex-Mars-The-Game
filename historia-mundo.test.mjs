@@ -216,4 +216,14 @@ test('la baliza viaja en rover y Pathfinder solo enlaza tras limpieza, encendido
   usar([0,1.55,5.72],/iagn/);assert.equal(s.hud.finales,1)
   // La telemetría de suspensión sobrevive al final de la demo.
   assert.ok(Number.isFinite(estado().roverAltura));assert.ok(estado().roverContactos>=1)
+  // La voz reutiliza la consola del puente y el enlace ya montado: no repite
+  // el final ni abre otro acto de radio.
+  const vozDiagnostico=s.sim.comando('diagnostico')
+  assert.equal(vozDiagnostico.tono,'ok')
+  assert.equal(vozDiagnostico.finDemo,false)
+  assert.equal(s.hud.finales,1)
+  const vozTierra=s.sim.comando('tierra')
+  assert.equal(vozTierra.tono,'ok')
+  assert.match(vozTierra.texto,/Houston/)
+  assert.ok(vozTierra.lineas.length>=3)
 })

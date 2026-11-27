@@ -52,7 +52,13 @@
   interiores ni daños; la cámara no colisiona con el casco al montar cerca. La
   suspensión ya es física, pero no hay vuelco, ni daño por caída, ni desgaste de
   batería pese al aviso de la tormenta.
-- No hay gamepad, ni combustible.
+- No hay combustible simulado. Los mandos comparten un solo astronauta, sin cooperativo de dos personajes.
+- La voz depende del navegador: Chrome/Edge y Firefox la ofrecen; Safari no. Si el
+  paquete local no está instalado, el audio puede viajar al servicio del
+  navegador; el juego no guarda transcripciones. No se probó con micrófono ni
+  mandos físicos, solo con APIs simuladas.
+- La palabra de activación puede confundirse con conversación de fondo; la ventana
+  es de siete segundos y siempre se puede usar F/LB o apagar la voz.
 - La flecha de rumbo está apagada por defecto; se activa en Opciones.
 - El panel de controles del globo se oculta mientras el menú de inicio está
   visible. Ahora existe el botón **Controles** en ambos menús, pero no un botón
@@ -102,4 +108,4 @@
    de aterrizaje.
 8. Ampliar la física del rover (daño por caída, vuelco, consumo y sonido por
    ruedas) y la cámara con colisión contra el casco.
-9. Añadir gamepad, opción de idioma y focus trap en la pausa.
+9. Ampliar la localización del juego y completar el control de foco en la pausa.

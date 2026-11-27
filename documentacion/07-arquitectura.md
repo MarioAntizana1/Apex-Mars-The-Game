@@ -22,7 +22,13 @@ la escena three.js.
 | `creditos.js` | Lista única de créditos (equipo, fuentes, recursos y tipografías) para el menú y la pausa; la detalla `documentacion/12-creditos.md` |
 | `preferencias.js` | `leerPreferencias` / `guardarPreferencias` y evento `apex:preferencias` |
 | `historia.js` | Modo historia Cesium (prólogo y visita Pathfinder); cierre y `escape` |
-| `historia-escena.js` | Campaña three.js: cine, EVA, HUD, tablet, pausa, audio |
+| `historia-escena.js` | Campaña three.js: cine, EVA, HUD, tablet, pausa, audio; conecta el OBC y los mandos |
+| `cabina-obc.js` | Une ritual, reconocedor, consola y mando; decide la zona y enruta cada orden |
+| `voz.js` | Normaliza, separa «Nostromo», empareja frases tolerantes a erratas y aplica la ventana de siete segundos |
+| `reconocedor.js` | Adaptador de `SpeechRecognition`: modos, permisos, paquete local, PTT y cancelación |
+| `comandos.js` | Catálogo único de órdenes, ids, frases y preguntas ambiguas |
+| `consola.js` | Barra del OBC, barrido KITT, editor escrito, paginación, turnos y ajustes de voz/mando |
+| `mando.js` / `menu-mando.js` | Mandos Xbox (dos para un jugador), zona muerta, flancos y navegación por menús |
 | `historia-explora.js` | Simulación EVA: movimiento, salto/carrera, rover, Sagan, colisiones y misión de la baliza |
 | `historia-terreno.js` | Sectores reales, vista previa, MOLA, alturas y constantes del mundo |
 | `historia-regolito.js` | Baldosa procedural de suelo y material con juntas de fotos fundidas |
@@ -45,9 +51,16 @@ la escena three.js.
 ```js
 {
   update(dt), dispose(), interact(), move(x, z), look(dx, dy),
-  sprint(activo), jump(), vehicle(), mapa(), estado()
+  sprint(activo), jump(), vehicle(), mapa(), estado(),
+  comando(id), ejes(x, z), mandoTurbo(bool), frenar(bool), recentrar()
 }
 ```
+
+`comando(id)` es la única puerta de la voz y la consola escrita. Devuelve
+`{texto, tono, …}` y aplica las mismas condiciones que `V`, la consola del puente
+o el rover: el diagnóstico exige estar dentro del casco, Tierra exige el puente,
+Despliega rover exige el exterior y no embarca si el rover ya está desplegado.
+`ejes` es un canal analógico independiente de `move` (táctil) y del teclado.
 
 `estado()` devuelve `{x,z,y,yaw,outside,exteriorZone,hasTablet,rover,conduciendo,airborne,
 llegadaSagan,comunicacionesActivas,distanciaSagan,panelesLimpios,encendidoIntentado,
@@ -69,6 +82,7 @@ depuración.
 | `mapa()` | Abre/cierra el diálogo de la tablet |
 | `paused()` | Verdadero con mapa o pausa abiertos; detiene la simulación |
 | `position(datos)` | Posición, rumbo, velocidad, distancia a Sagan; mapa y flecha |
+| `mapaAbierto()` | El mapa está abierto; la voz solo permite cerrarlo desde ahí |
 
 ## API del terreno
 
@@ -161,6 +175,8 @@ menú Iniciar → #abrir-historia → historia.js caida()
 - **three.js** en `vendor/three/three.module.min.js` (escena 3D y rover).
 - Sin bundler ni framework: módulos ES nativos; el servidor solo debe enviar los
   MIME correctos (`.mjs`, `.bin`, `.webp`, `.glb`, `.wasm`).
+- **APIs del navegador**: `SpeechRecognition` (voz; opcional y apagada por
+  defecto) y Gamepad API (mandos Xbox). No añaden dependencias ni archivos.
 - Python con numpy/Pillow solo para regenerar los datos.
 
 ## Convenciones y detalles
