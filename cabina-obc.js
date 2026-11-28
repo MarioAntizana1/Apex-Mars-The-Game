@@ -1,6 +1,7 @@
 import { crearRitual } from './voz.js'
 import { crearReconocedor } from './reconocedor.js'
 import { crearConsola } from './consola.js'
+import { crearMedidorVoz } from './medidor-voz.js'
 import { crearMando, navegarMando } from './mando.js'
 import { leerPreferencias } from './preferencias.js'
 
@@ -22,10 +23,11 @@ export function tonoOBC(audio, destino, tipo) {
 // Un dueño de todos los adaptadores por partida. Ningún resultado tardío tiene
 // acceso a la simulación si el jugador cambia de ventana, abre un modal o sale.
 export function conectarOBC({sim, zona, raizMenu, accionMenu, pausar, guia, cerrarMapa, alTono}, {
-  ventana=window, doc=document, preferencias=leerPreferencias, consolaHUD=crearConsola, reconocimiento=crearReconocedor, controlador=crearMando
+  ventana=window, doc=document, preferencias=leerPreferencias, consolaHUD=crearConsola, reconocimiento=crearReconocedor, controlador=crearMando, medidor=crearMedidorVoz
 }={}) {
   let prefs=preferencias(), terminado=false, hablando=false, config='', escuchaActiva=false, modoPad=null
-  let consola, micro, ritual, mando
+  let consola, micro, ritual, mando, nivel
+  let silencio=0, avisoSilencio=false, sinMedidor=false
   const abort=new AbortController(), opts={signal:abort.signal}, fuentes=new Set()
   const zonaActual=()=>terminado||doc.hidden?'bloqueado':zona()
   function ejecutar(id) {
@@ -39,6 +41,22 @@ export function conectarOBC({sim, zona, raizMenu, accionMenu, pausar, guia, cerr
     const respuesta=sim.comando(id)
     if(id==='habla' || id==='silencio') consola.silenciar(id==='silencio')
     if(respuesta) consola.responder(respuesta)
+  }
+  // El medidor es independiente del reconocimiento: si la tira no se mueve con
+  // la voz, el problema está en la entrada; si se mueve y no hay respuesta, en
+  // el servicio de voz o en el idioma.
+  function medir(activa) {
+    if(!nivel || terminado)return
+    if(activa && !sinMedidor && prefs.voz!=='apagada') {
+      nivel.abrir().then(estado=>{
+        if(terminado || !escuchaActiva || prefs.voz==='apagada'){nivel.cerrar();return}
+        if(estado==='error')consola?.estado({escuchando:true,mensaje:nivel.motivo()})
+      }).catch(()=>{})
+      consola?.escucha?.(true)
+    } else {
+      nivel.cerrar(); silencio=0; avisoSilencio=false
+      consola?.escucha?.(false)
+    }
   }
   function sincronizar() {
     if(!micro || terminado)return
@@ -57,8 +75,18 @@ export function conectarOBC({sim, zona, raizMenu, accionMenu, pausar, guia, cerr
       config=clave; escuchaActiva=activa; ritual?.dormir()
       micro.configurar({modo,idioma:prefs.idiomaVoz,activo:activa})
       if(activa)micro.pulsar(fuentes.size>0)
+      medir(activa)
     }
     if(prefs.mando!==modoPad){modoPad=prefs.mando; mando?.reset(); if(!modoPad)consola.dispositivo(false)}
+  }
+  // Un aviso único por sesión de escucha: distinguir «no llega audio» de «no lo
+  // entiende» es la mitad del diagnóstico cuando la orden no responde.
+  function vigilarSilencio(lectura) {
+    if(!escuchaActiva || !lectura.activo)return
+    if(lectura.nivel > .04) { silencio=0; avisoSilencio=false; return }
+    if(++silencio < 90 || avisoSilencio)return
+    avisoSilencio=true
+    consola?.estado({escuchando:true,mensaje:'No llega audio del micrófono. Revisa la entrada y prueba de nuevo.'})
   }
   function hablar(origen,pulsado) {
     sincronizar(); const z=zonaActual()
@@ -69,7 +97,21 @@ export function conectarOBC({sim, zona, raizMenu, accionMenu, pausar, guia, cerr
     if(Boolean(previo)!==Boolean(fuentes.size))micro.pulsar(fuentes.size>0)
   }
   ritual=crearRitual({alDespertar:()=>consola.despertar(),alComando:ejecutar})
-  micro=reconocimiento({alTexto:(frase,opciones)=>{const z=zonaActual(); if(!hablando && (z==='juego'||z==='mapa'))ritual.texto(frase,opciones)},alEstado:e=>consola?.estado(e)})
+  nivel=medidor({entorno:ventana})
+  micro=reconocimiento({
+    alTexto:(frase,opciones)=>{const z=zonaActual(); if(!hablando && (z==='juego'||z==='mapa'))ritual.texto(frase,opciones)},
+    alParcial:texto=>consola?.parcial?.(texto),
+    alEstado:e=>{
+      // Si el navegador no deja compartir el micrófono con el reconocimiento, la
+      // orden hablada manda: se retira la tira de nivel y se reintenta escuchar.
+      if(e?.error && /abrir el micrófono/i.test(String(e.mensaje)) && !sinMedidor) {
+        sinMedidor=true; nivel?.cerrar(); consola?.escucha?.(false); micro?.reintentar?.()
+        consola?.estado({escuchando:true,mensaje:'La tira de nivel se retira: este navegador no comparte el micrófono. La voz sigue activa.'})
+        return
+      }
+      consola?.estado(e)
+    }
+  })
   consola=consolaHUD({alEnviar:frase=>ritual.texto(frase,{directo:true}),alPulsar:()=>hablar('hud',!fuentes.has('hud')),alAjustar:()=>actualizarPreferencias(),alTono,alVozHablada:v=>{hablando=v;sincronizar()}})
   const juego={usar:()=>sim.interact(),saltar:()=>sim.jump(),vehiculo:()=>sim.vehicle(),mapa:()=>sim.mapa(),recentrar:()=>sim.recentrar(),pausa:pausar,guia}
   mando=controlador({contexto:()=>{const z=zonaActual();return z==='juego'||z==='bloqueado'?z:'menu'},
@@ -93,6 +135,14 @@ export function conectarOBC({sim, zona, raizMenu, accionMenu, pausar, guia, cerr
   ventana.addEventListener('focus',()=>sincronizar(),opts)
   doc.addEventListener('visibilitychange',bloquear,opts)
   actualizarPreferencias()
-  return {actualizar(dt){sincronizar();if(prefs.mando && zonaActual()!=='bloqueado')mando.actualizar(dt)},
-    dispose(){terminado=true;abort.abort();ritual.dormir();micro.dispose();mando.dispose();consola.dispose()}}
+  return {actualizar(dt){
+      sincronizar()
+      if(nivel && escuchaActiva) {
+        const lectura=nivel.leer()
+        consola?.nivel?.(lectura.nivel, lectura.pico)
+        vigilarSilencio(lectura)
+      }
+      if(prefs.mando && zonaActual()!=='bloqueado')mando.actualizar(dt)
+    },
+    dispose(){terminado=true;abort.abort();ritual.dormir();nivel?.cerrar();micro.dispose();mando.dispose();consola.dispose()}}
 }

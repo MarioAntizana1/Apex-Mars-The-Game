@@ -77,7 +77,12 @@
 .obc-nav button:disabled { opacity:.35; cursor:default }
 .obc-pagina { min-width:2.6em; text-align:center; color:#b9d6cb; font-size:.68rem }
 .obc-kitt { position:relative; display:flex; gap:2px; height:8px; margin-top:.16rem; overflow:hidden; border-radius:1px }
-.obc-kitt i { flex:1; height:100%; border-radius:1px; background:#2a0f0b; box-shadow:inset 0 0 0 1px #00000055 }
+.obc-kitt i { flex:1; height:100%; border-radius:1px; background:#2a0f0b; box-shadow:inset 0 0 0 1px #00000055; transition:background .06s linear }
+.obc-kitt i[data-on=si] { background:#ff4a33; box-shadow:inset 0 0 0 1px #ff8a6b88, 0 0 6px #ff3b2f66 }
+.obc-kitt i[data-on=si]:nth-child(n+11) { background:#ffd0a8 }
+#obc[data-modo=escucha] { padding-top:.3rem; padding-bottom:.34rem }
+#obc[data-modo=escucha] .obc-texto:empty { display:none }
+#obc[data-modo=escucha] .obc-kitt { height:11px }
 .obc-kitt-luz { position:absolute; top:0; bottom:0; left:-15%; width:26%; opacity:0; background:linear-gradient(90deg,transparent,#ff3b2f 28%,#ffd6c9 50%,#ff3b2f 72%,transparent); filter:blur(.4px); pointer-events:none }
 #obc-kitt.activo .obc-kitt-luz { opacity:1; animation:obc-barrido 1.45s ease-in-out infinite alternate }
 .obc-ayuda { margin:.3rem 0 0; color:#8fa9a0; font-size:.63rem }
@@ -141,6 +146,7 @@ body:has(#guia-controles[open]) #obc { visibility:hidden }
   .obc-texto { max-height:4.5em }
 }
 @media (prefers-reduced-motion: reduce) {
+  .obc-kitt i { transition:none }
   #obc-kitt.activo .obc-kitt-luz { animation:none; left:44%; opacity:.85 }
   #obc-kitt.activo i:nth-child(6), #obc-kitt.activo i:nth-child(7), #obc-kitt.activo i:nth-child(8) { background:#ff5a3c }
   #obc[data-escuchando=si] .obc-estado::before { animation:none }

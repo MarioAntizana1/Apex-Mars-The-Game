@@ -265,6 +265,44 @@ test('la escucha directa se ve mientras se habla y se retira al terminar', t => 
   assert.equal(e.$('obc').hidden, true)
 })
 
+test('la tira KITT enciende los segmentos que marca el micrófono', t => {
+  const e = montar(t)
+  e.consola.escucha(true)
+  assert.equal(e.$('obc').hidden, false)
+  assert.equal(e.$('obc').dataset.modo, 'escucha')
+  const segmentos = e.$('obc-kitt').children.filter(n => n.id !== 'nada')
+  e.consola.nivel(.5)
+  const encendidos = e.$('obc-kitt').children.filter(n => n.dataset.on === 'si')
+  assert.equal(encendidos.length, 7) // 14 segmentos · mitad
+  assert.equal(segmentos.length, 15) // 14 + la luz de barrido
+  e.consola.nivel(0)
+  assert.equal(e.$('obc-kitt').children.filter(n => n.dataset.on === 'si').length, 0)
+  e.consola.escucha(false)
+  assert.equal(e.$('obc').hidden, true)
+  assert.equal(e.$('obc').dataset.modo, undefined)
+})
+
+test('una respuesta devuelve la barra a su tamaño normal tras el modo escucha', t => {
+  const e = montar(t)
+  e.consola.escucha(true)
+  assert.equal(e.$('obc').dataset.modo, 'escucha')
+  e.consola.responder({ texto: 'Estado del traje: sellado.', tono: 'ok' })
+  assert.equal(e.$('obc').dataset.modo, undefined)
+  assert.equal(e.$('obc-texto').textContent, 'Estado del traje: sellado.')
+  e.consola.escucha(false)
+  assert.equal(e.$('obc').hidden, false) // la respuesta sigue a la vista
+})
+
+test('el reconocedor muestra lo que oye antes de decidir la orden', t => {
+  const e = montar(t)
+  e.consola.parcial('noso tro mo')
+  assert.equal(e.$('obc-estado').textContent, 'Oigo: noso tro mo')
+  assert.equal(e.$('obc').dataset.modo, 'escucha')
+  e.consola.parcial('')
+  e.consola.estado({ escuchando: true })
+  assert.equal(e.$('obc-estado').textContent, 'Escuchando…')
+})
+
 test('el editor envía una vez después de cerrarse, no envía vacío y devuelve el foco', t => {
   const e = montar(t)
   const entrada = e.$('obc-entrada')

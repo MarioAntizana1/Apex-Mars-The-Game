@@ -123,6 +123,22 @@ export function crearConsola({ alEnviar, alPulsar, alAjustar, alTono, alVozHabla
     } catch { avisarVoz(false) }
   }
   function fijarEstado(mensaje) { textoEn(estadoNodo, mensaje) }
+  // Tira KITT: la luz de barrido marca que Nostromo despierta o responde; los
+  // segmentos encendidos, en cambio, siguen el nivel real del micrófono.
+  let segmentosOn = -1
+  function nivel(valor, tope = 0) {
+    if (!vivo || !kitt) return
+    const cuantos = Math.round(Math.max(0, Math.min(1, Number(valor) || 0)) * SEGMENTOS)
+    if (cuantos === segmentosOn) return
+    segmentosOn = cuantos
+    for (let i = 0; i < SEGMENTOS; i++) {
+      const segmento = kitt.children?.[i]
+      if (!segmento?.dataset) continue
+      if (i < cuantos) { if (segmento.dataset.on !== 'si') segmento.dataset.on = 'si' }
+      else if (segmento.dataset.on) delete segmento.dataset.on
+    }
+    if (barra) barra.dataset.nivel = String(cuantos)
+  }
   function prepararKitt() {
     if (!kitt) return
     if (!kitt.children?.length) {
@@ -184,7 +200,9 @@ export function crearConsola({ alEnviar, alPulsar, alAjustar, alTono, alVozHabla
     fijarEstado('')
     if (nav) nav.hidden = true
     listaActual = { titulo: '', paginas: [[]], items: [], indice: 0 }
-    if (barra) { barra.dataset.tono = 'info'; delete barra.dataset.tipo }
+    if (barra) { barra.dataset.tono = 'info'; delete barra.dataset.tipo; delete barra.dataset.modo }
+    mensajeParcial = ''
+    nivel(0)
     kitt?.classList?.remove?.('activo')
     ocultarBarra()
   }
@@ -255,7 +273,9 @@ export function crearConsola({ alEnviar, alPulsar, alAjustar, alTono, alVozHabla
     if (!intercambio?.length && !items?.length && !limpio) return null
     cancelarOcultar()
     mostrarBarra()
-    if (barra) barra.dataset.tono = Object.hasOwn(TONO_A_EFECTO, tono) ? tono : 'info'
+    // Una respuesta ocupa la barra completa aunque estuviera en modo escucha.
+    if (barra) { delete barra.dataset.modo; barra.dataset.tono = Object.hasOwn(TONO_A_EFECTO, tono) ? tono : 'info' }
+    mensajeParcial = ''
     fijarEstado('')
     barrer(2200)
     emitir(TONO_A_EFECTO[tono] ?? 'info')
@@ -284,6 +304,35 @@ export function crearConsola({ alEnviar, alPulsar, alAjustar, alTono, alVozHabla
     ajustarAlto()
     return { tipo: 'texto' }
   }
+  // Modo compacto: mientras el micrófono está armado la barra se queda a la
+  // vista con la tira KITT, para ver si llega voz. Un diálogo la devuelve a su
+  // tamaño normal y al apagar la voz se retira.
+  let mensajeParcial = ''
+  function escucha(activo) {
+    if (!vivo || !barra) return
+    if (activo) {
+      mostrarBarra()
+      if (barra.dataset.modo !== 'escucha') { barra.dataset.modo = 'escucha'; ajustarAlto() }
+      cancelarOcultar()
+      if (mensajeParcial === '') fijarEstado('Escuchando…')
+      return
+    }
+    if (barra.dataset.modo !== 'escucha') return
+    delete barra.dataset.modo
+    nivel(0)
+    if (!String(textoNodo?.textContent ?? '').trim() && !listaActual.items.length) ocultar()
+    else ajustarAlto()
+  }
+  // Lo que el reconocedor está oyendo ahora mismo. Sirve para distinguir «no
+  // llega audio» de «llega, pero el motor no reconoce la orden».
+  function parcial(texto) {
+    if (!vivo) return
+    const limpio = String(texto ?? '').trim()
+    if (!limpio) { mensajeParcial = ''; return }
+    mensajeParcial = limpio
+    escucha(true)
+    fijarEstado(`Oigo: ${limpio}`)
+  }
   function estado({ escuchando: activo, mensaje, error = false, directo = false } = {}) {
     if (!vivo) return
     // Mostrar el gesto explícito de F/LB incluso si no había diálogo. La
@@ -296,7 +345,7 @@ export function crearConsola({ alEnviar, alPulsar, alAjustar, alTono, alVozHabla
         if (escuchando) barra.dataset.escuchando = 'si'
         else delete barra.dataset.escuchando
       }
-      if (mensaje === undefined) fijarEstado(escuchando ? 'Escuchando…' : 'En espera')
+      if (mensaje === undefined) fijarEstado(escuchando ? (mensajeParcial ? `Oigo: ${mensajeParcial}` : 'Escuchando…') : 'En espera')
       // No retirar el indicador mientras se está hablando.
       if (escuchando && !barra?.hidden) cancelarOcultar()
     }
@@ -486,5 +535,5 @@ export function crearConsola({ alEnviar, alPulsar, alAjustar, alTono, alVozHabla
   sincronizar()
   dispositivo(false)
 
-  return { despertar, responder, estado, sonido, silenciar, dispositivo, cerrar, ocultar, dispose, abrirEditor }
+  return { despertar, responder, estado, sonido, silenciar, dispositivo, cerrar, ocultar, dispose, abrirEditor, nivel, escucha, parcial }
 }

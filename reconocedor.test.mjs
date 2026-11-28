@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { crearReconocedor } from './reconocedor.js'
 
 function banco(disponible = 'available') {
-  const instancias = [], textos = [], estados = []
+  const instancias = [], textos = [], estados = [], parciales = []
   class Motor {
     static async available({langs,processLocally}) { assert.deepEqual(langs,['es-ES']); assert.equal(processLocally,true); return disponible }
     processLocally = false
@@ -12,11 +12,22 @@ function banco(disponible = 'available') {
     abort() { this.abortado = true }
     stop() { this.parado = true }
   }
-  const api = crearReconocedor({ entorno: {webkitSpeechRecognition:Motor}, alTexto:(...args)=>textos.push(args), alEstado:e=>estados.push(e) })
+  const api = crearReconocedor({ entorno: {webkitSpeechRecognition:Motor}, alTexto:(...args)=>textos.push(args), alParcial:t=>parciales.push(t), alEstado:e=>estados.push(e) })
   const final = (texto,isFinal=true) => ({resultIndex:0,results:[{0:{transcript:texto},isFinal}]})
-  return {api,instancias,textos,estados,final}
+  return {api,instancias,textos,parciales,estados,final}
 }
 const ciclo = () => new Promise(resolve=>setImmediate(resolve))
+
+test('lo que se oye se publica como parcial y se retira al cerrar la frase', async t => {
+  const {api,instancias,parciales,textos,final}=banco(); t.after(()=>api.dispose())
+  api.configurar({activo:true,modo:'siempre'}); await ciclo()
+  instancias[0].onresult(final('nostro',false))
+  assert.equal(parciales.at(-1),'nostro'); assert.deepEqual(textos,[])
+  instancias[0].onresult(final('Nostromo, estado del traje'))
+  assert.equal(parciales.at(-1),''); assert.equal(textos.at(-1)[0],'Nostromo, estado del traje')
+  assert.equal(instancias[0].interimResults,true)
+  instancias[0].onend(); assert.equal(parciales.at(-1),'')
+})
 
 test('el estado PTT distingue solicitud, inicio y captura real', async t => {
   const {api,instancias,estados}=banco(); t.after(()=>api.dispose())

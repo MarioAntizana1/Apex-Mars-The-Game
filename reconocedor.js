@@ -2,7 +2,7 @@ import { explicarError, problemaCaptura } from './microfono.js'
 
 // Web Speech no es uniforme entre navegadores. El motor sólo existe mientras la
 // campaña está activa; cada sesión posee sus callbacks (incluido el final de PTT).
-export function crearReconocedor({ alTexto = () => {}, alEstado = () => {}, entorno = globalThis } = {}) {
+export function crearReconocedor({ alTexto = () => {}, alParcial = () => {}, alEstado = () => {}, entorno = globalThis } = {}) {
   const Motor = entorno.SpeechRecognition || entorno.webkitSpeechRecognition
   let modo = 'apagada', idioma = 'es-ES', activo = false, pulsado = false
   let muerta = false, bloqueo = '', generacion = 0, sesion = null, espera, vacias = 0
@@ -16,6 +16,7 @@ export function crearReconocedor({ alTexto = () => {}, alEstado = () => {}, ento
     const s = sesion; sesion = null
     if (!s) return
     clearTimeout(s.limite)
+    alParcial('')
     if (s.rec) {
       s.rec.onresult = s.rec.onerror = s.rec.onend = s.rec.onstart = s.rec.onaudiostart = null
       try { s.rec.abort() } catch { /* ya terminó */ }
@@ -39,7 +40,10 @@ export function crearReconocedor({ alTexto = () => {}, alEstado = () => {}, ento
     const vigente = () => sesion === s && !muerta
     try {
       const rec = s.rec = new Motor()
-      rec.lang = idioma; rec.continuous = false; rec.interimResults = false; rec.maxAlternatives = 1
+      // Los resultados parciales no ejecutan nada: sólo muestran en el OBC lo
+      // que el motor está oyendo, para distinguir un micrófono mudo de un motor
+      // que no entiende la orden.
+      rec.lang = idioma; rec.continuous = false; rec.interimResults = true; rec.maxAlternatives = 1
       if ('processLocally' in rec && typeof Motor.available === 'function') {
         // Consultar, nunca descargar un paquete ni solicitar permisos en bucle.
         try { s.local = await Motor.available({ langs: [idioma], processLocally: true }) === 'available' } catch { /* servicio del navegador */ }
@@ -54,15 +58,20 @@ export function crearReconocedor({ alTexto = () => {}, alEstado = () => {}, ento
         if (!vigente()) return
         for (let i = e.resultIndex ?? 0; i < e.results.length && vigente(); ++i) {
           const r = e.results[i], frase = r[0]?.transcript?.trim()
-          if (r.isFinal && frase && !emitidos.has(i)) {
-            emitidos.add(i); s.resultado = true; vacias = 0; alTexto(frase, { directo: s.directo })
-          }
+          if (!frase) continue
+          if (r.isFinal) {
+            if (emitidos.has(i)) continue
+            emitidos.add(i); s.resultado = true; vacias = 0
+            alParcial('')
+            alTexto(frase, { directo: s.directo })
+          } else alParcial(frase)
         }
       }
       rec.onerror = e => { if (vigente() && !['no-speech','aborted'].includes(e.error)) bloquear(explicarError(e.error), e.error) }
       rec.onend = () => {
         if (!vigente()) return
         sesion = null; clearTimeout(s.limite)
+        alParcial('')
         estado(modo === 'ptt' ? 'Mantén pulsado para hablar.' : modo === 'siempre' ? 'OBC en espera de «Nostromo».' : 'Micrófono en espera.')
         if (quiere()) {
           if (!s.resultado) ++vacias

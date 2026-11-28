@@ -4,6 +4,8 @@
 
 En **Opciones → Voz del OBC**, elige *Siempre escuchando* para usar el nombre de activación, o *Pulsar para hablar* si prefieres abrir el micrófono solo con **F** o **LB**. La voz está apagada de fábrica. Al activar uno de los modos, permite el acceso al micrófono si el navegador lo solicita. Si ya lo permitiste, puede que no aparezca ningún aviso; si antes lo bloqueaste, cambia el permiso de micrófono en los ajustes del sitio. Entra en la exploración para dar órdenes. Di **«Nostromo»** o **«Nostrosmo»**: el barrido de luces inferior y una señal corta indican que la nave espera tu orden. Di **«Dame diagnóstico de nave»** en los siguientes siete segundos. También puedes decir el nombre y la orden seguidos. Con F/LB no hace falta decir el nombre.
 
+Con la voz activada, la barra del OBC se queda abajo en modo compacto y su tira de luces **dibuja el nivel del micrófono en tiempo real**. Si hablas y la tira no se mueve, el audio no está llegando a la página; si se mueve pero no hay respuesta, el problema está en el servicio de voz o en el idioma. El texto de estado muestra además **«Oigo: …»** con lo que el motor va reconociendo antes de decidir la orden.
+
 Sin micrófono, usa **OBC · Escribir**. Puedes completar la partida sin activar la voz. La barra da la respuesta por escrito aunque el juego esté silenciado; activa **Voz hablada del OBC** y el sonido del juego para oír a Nostromo. Habla en un tono grave y pausado, inspirado en HAL; el timbre depende de las voces en español instaladas en tu dispositivo. Con movimiento reducido las luces no hacen el barrido animado.
 
 ## Órdenes de exploración
@@ -49,7 +51,9 @@ Conecta los mandos Xbox y pulsa un botón para que el navegador los exponga. No 
 ## Comprobación manual con hardware
 
 1. Con voz apagada, escribe «Despliega rover» dentro del casco. Debe responder sin crear un vehículo. Sal por la esclusa, repite en terreno despejado y repite a bordo: no debe bajarte ni crear un segundo rover.
-2. Prueba cada nombre por separado, espera el barrido y pide un informe. Espera más de siete segundos y comprueba que una orden sin el nombre se ignora. Prueba también F y LB con el acento, el ruido y el micrófono reales del equipo.
+2. Prueba cada nombre por separado, espera el barrido y pide un informe. Espera más de siete segundos y comprueba que una orden sin el nombre se ignora. Prueba también F y LB con el acento, el ruido y el micrófono reales del equipo. Con la tira de nivel a la vista, habla y comprueba que las luces responden a tu voz.
 3. Intenta llamar desde el puente antes y después de montar ambos equipos. La llamada final no debe repetir el acto de Sagan ni reactivar la tormenta.
 4. Prueba denegar permiso, silenciar, cambiar de pestaña y volver al globo: el juego debe seguir disponible por escrito y no mantener el micrófono abierto al salir.
 5. Camina con un mando y toma el relevo con el otro; desconecta el que tiene el control mientras mantienes un gatillo. Comprueba que no quedan movimiento, turbo, freno o micrófono retenidos. En pausa, las pulsaciones deben mover el foco sin mover al astronauta.
+6. Si una orden no responde, anota qué muestra la tira: encendida con «Oigo: …» apunta a reconocimiento o idioma; apagada del todo, a la entrada de audio.
+7. Con la voz apagada, la barra no aparece y el navegador no muestra el indicador de micrófono en uso.

@@ -4,17 +4,59 @@ import { conectarOBC, tonoOBC } from './cabina-obc.js'
 
 // La campaña real conecta los tres adaptadores al mismo estado. En estas pruebas
 // sólo sustituimos los dispositivos: el ritual y el enrutado son los de juego.
-function cabina(t, prefs = {voz:'siempre',idiomaVoz:'es-PE',mando:true,sonido:true}) {
+function cabina(t, prefs = {voz:'siempre',idiomaVoz:'es-PE',mando:true,sonido:true}, opciones = {}) {
   const doc=new EventTarget(), ventana=new EventTarget(); doc.hasFocus=()=>true; doc.hidden=false
-  const m={zona:'juego',ordenes:[],respuestas:[],pulsos:[],ajustes:[],voces:[],menus:[],estados:[],dispone:{micro:0,mando:0,consola:0}}
+  const m={zona:'juego',ordenes:[],respuestas:[],pulsos:[],ajustes:[],voces:[],menus:[],estados:[],niveles:[],parciales:[],escuchas:[],medidorAbierto:0,medidorCerrado:0,dispone:{micro:0,mando:0,consola:0}}
   const sim={comando:id=>{m.ordenes.push(id);return {texto:id,tono:'ok'}},ejes(){},look(){},mandoTurbo(){},frenar(){},recentrar(){},saltar(){},jump(){},interact(){m.interaccion=true}}
   const obc=conectarOBC({sim,zona:()=>m.zona,raizMenu:()=>null,accionMenu:(z,id)=>{m.menus.push([z,id]);return true},cerrarMapa:()=>{m.zona='juego'}},{
     doc,ventana,preferencias:()=>({...prefs}),
-    consolaHUD:cb=>{m.hud=cb;return {despertar:()=>m.despierto=true,responder:r=>m.respuestas.push(r),dispositivo(){},estado:e=>m.estados.push(e),silenciar:v=>m.voces.push(v),sonido(){},dispose(){m.dispone.consola++}}},
+    consolaHUD:cb=>{m.hud=cb;return {despertar:()=>m.despierto=true,responder:r=>m.respuestas.push(r),dispositivo(){},estado:e=>m.estados.push(e),silenciar:v=>m.voces.push(v),sonido(){},dispose(){m.dispone.consola++},
+      nivel:(n,p)=>m.niveles.push([n,p]),escucha:v=>m.escuchas.push(v),parcial:t=>m.parciales.push(t)}},
     reconocimiento:cb=>{m.micro=cb;return {configurar:o=>m.ajustes.push(o),pulsar:v=>m.pulsos.push(v),dispose(){m.dispone.micro++}}},
+    medidor:()=>({abrir:async()=>{m.medidorAbierto++;return 'activo'},cerrar:()=>{m.medidorCerrado++},leer:()=>({nivel:opciones.nivel ?? .6,pico:opciones.pico ?? .7,activo:opciones.activo ?? true}),motivo:()=>'',disponible:()=>true}),
     controlador:cb=>{m.pad=cb;return {actualizar(){},reset(){},dispose(){m.dispone.mando++}}}
   }); t.after(()=>obc.dispose()); return {...m,m,obc,doc,ventana}
 }
+
+test('la voz armada abre el medidor y la tira recibe el nivel en cada cuadro', async t=>{
+  const {m,obc}=cabina(t)
+  await new Promise(r=>setImmediate(r))
+  assert.ok(m.medidorAbierto>=1);assert.deepEqual(m.escuchas.at(-1),true)
+  obc.actualizar(.016)
+  assert.deepEqual(m.niveles.at(-1),[.6,.7])
+  m.zona='pausa';obc.actualizar(.016);await new Promise(r=>setImmediate(r))
+  assert.ok(m.medidorCerrado>=1);assert.deepEqual(m.escuchas.at(-1),false)
+})
+
+test('con la voz apagada no se abre el micrófono para medir', async t=>{
+  const {m}=cabina(t,{voz:'apagada',idiomaVoz:'es-ES',mando:true,sonido:true})
+  await new Promise(r=>setImmediate(r))
+  assert.equal(m.medidorAbierto,0);assert.deepEqual(m.escuchas.at(-1),false)
+})
+
+test('un aviso único cuando no llega audio, y ninguno si se habla', async t=>{
+  const mudo=cabina(t,undefined,{nivel:0})
+  await new Promise(r=>setImmediate(r))
+  for(let i=0;i<200;i++)mudo.obc.actualizar(.016)
+  assert.equal(mudo.estados.filter(e=>/No llega audio/.test(e.mensaje)).length,1)
+  const hablado=cabina(t,undefined,{nivel:.5})
+  await new Promise(r=>setImmediate(r))
+  for(let i=0;i<200;i++)hablado.obc.actualizar(.016)
+  assert.equal(hablado.estados.filter(e=>/No llega audio/.test(e.mensaje)).length,0)
+})
+
+test('si el navegador no comparte el micrófono se retira la tira y la voz sigue', async t=>{
+  const {m,obc}=cabina(t)
+  await new Promise(r=>setImmediate(r))
+  const cerradosAntes=m.medidorCerrado
+  m.micro.alEstado({error:true,escuchando:false,mensaje:'No se puede abrir el micrófono. Comprueba la entrada y si está en uso. Puedes escribir la orden.'})
+  assert.ok(m.medidorCerrado>cerradosAntes)
+  assert.match(m.estados.at(-1).mensaje,/tira de nivel se retira/i)
+  m.zona='pausa';obc.actualizar(.016);m.zona='juego';obc.actualizar(.016)
+  await new Promise(r=>setImmediate(r))
+  assert.equal(m.medidorAbierto,cerradosAntes>0?m.medidorAbierto:1) // no se reabre
+  assert.equal(m.escuchas.at(-1),false)
+})
 
 test('voz y consola escrita comparten destino y respetan pausa, mapa y cierre',t=>{
   const {m,obc}=cabina(t)
