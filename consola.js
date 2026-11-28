@@ -42,6 +42,7 @@ export function crearConsola({ alEnviar, alPulsar, alAjustar, alTono, alVozHabla
   const editor = $('obc-editor'), formulario = $('obc-editor-form'), entrada = $('obc-entrada')
   const abrir = $('obc-abrir'), tabletObc = $('tablet-obc'), cancelar = $('obc-cerrar-editor')
   const nav = $('obc-nav'), pagAnterior = $('obc-pagina-prev'), pagSiguiente = $('obc-pagina-next'), pagContador = $('obc-pagina')
+  const vozNodo = $('obc-voz')
   const ayudaJuego = $('eva-ayuda'), ayudaJuegoTexto = ayudaJuego?.textContent ?? ''
   const eventos = new AbortController()
   const { signal } = eventos
@@ -202,6 +203,9 @@ export function crearConsola({ alEnviar, alPulsar, alAjustar, alTono, alVozHabla
     listaActual = { titulo: '', paginas: [[]], items: [], indice: 0 }
     if (barra) { barra.dataset.tono = 'info'; delete barra.dataset.tipo; delete barra.dataset.modo }
     mensajeParcial = ''
+    clearTimeout(temporizadorSubtitulo)
+    temporizadorSubtitulo = 0
+    if (vozNodo) { vozNodo.hidden = true; vozNodo.textContent = ''; delete vozNodo.dataset.parcial }
     nivel(0)
     kitt?.classList?.remove?.('activo')
     ocultarBarra()
@@ -320,18 +324,62 @@ export function crearConsola({ alEnviar, alPulsar, alAjustar, alTono, alVozHabla
     if (barra.dataset.modo !== 'escucha') return
     delete barra.dataset.modo
     nivel(0)
+    clearTimeout(temporizadorSubtitulo)
+    temporizadorSubtitulo = 0
+    if (vozNodo?.dataset.parcial === 'si') mostrarSubtitulo('', true)
     if (!String(textoNodo?.textContent ?? '').trim() && !listaActual.items.length) ocultar()
     else ajustarAlto()
   }
-  // Lo que el reconocedor está oyendo ahora mismo. Sirve para distinguir «no
-  // llega audio» de «llega, pero el motor no reconoce la orden».
+  // Lo que el reconocedor está oyendo ahora mismo. Se muestra como subtítulo
+  // grande en la consola: distingue «no llega audio» de «llega, pero el motor no
+  // reconoce la orden».
+  let temporizadorSubtitulo = 0
+  function mostrarSubtitulo(texto, parciales) {
+    if (!vozNodo) return
+    const limpio = String(texto ?? '').trim()
+    clearTimeout(temporizadorSubtitulo)
+    temporizadorSubtitulo = 0
+    if (!limpio) { vozNodo.hidden = true; vozNodo.textContent = ''; ajustarAlto(); return }
+    vozNodo.hidden = false
+    vozNodo.textContent = limpio
+    if (parciales) vozNodo.dataset.parcial = 'si'
+    else delete vozNodo.dataset.parcial
+    ajustarAlto()
+  }
   function parcial(texto) {
     if (!vivo) return
     const limpio = String(texto ?? '').trim()
-    if (!limpio) { mensajeParcial = ''; return }
+    if (!limpio) {
+      mensajeParcial = ''
+      if (vozNodo?.dataset.parcial === 'si') mostrarSubtitulo('', true)
+      return
+    }
     mensajeParcial = limpio
     escucha(true)
+    mostrarSubtitulo(limpio, true)
     fijarEstado(`Oigo: ${limpio}`)
+  }
+  // Frase cerrada: se queda unos segundos como subtítulo antes de desvanecerse.
+  function subtitulo(texto) {
+    if (!vivo) return
+    const limpio = String(texto ?? '').trim()
+    if (!limpio) return
+    mostrarSubtitulo(limpio, false)
+    clearTimeout(temporizadorSubtitulo)
+    temporizadorSubtitulo = setTimeout(() => {
+      temporizadorSubtitulo = 0
+      if (vozNodo?.dataset.parcial !== 'si') mostrarSubtitulo('', false)
+    }, 2600)
+  }
+  // Un diagnóstico importante (permiso, fallo del motor) no debe desaparecer
+  // porque otro adaptador escriba después un aviso menor. Un error explícito del
+  // motor sí puede reemplazarlo: es el mensaje que importa.
+  let estadoProtegidoHasta = 0
+  const textoVisible = () => String(estadoNodo?.textContent ?? '')
+  function escribirEstado(texto, forzar = false) {
+    if (estadoProtegidoHasta > Date.now() && !forzar && texto !== textoVisible()) return false
+    fijarEstado(texto)
+    return true
   }
   function estado({ escuchando: activo, mensaje, error = false, directo = false } = {}) {
     if (!vivo) return
@@ -345,15 +393,19 @@ export function crearConsola({ alEnviar, alPulsar, alAjustar, alTono, alVozHabla
         if (escuchando) barra.dataset.escuchando = 'si'
         else delete barra.dataset.escuchando
       }
-      if (mensaje === undefined) fijarEstado(escuchando ? (mensajeParcial ? `Oigo: ${mensajeParcial}` : 'Escuchando…') : 'En espera')
+      if (mensaje === undefined && !escuchando) { estadoProtegidoHasta = 0; escribirEstado('En espera') }
+      else if (mensaje === undefined) escribirEstado(mensajeParcial ? `Oigo: ${mensajeParcial}` : 'Escuchando…')
       // No retirar el indicador mientras se está hablando.
       if (escuchando && !barra?.hidden) cancelarOcultar()
     }
     if (mensaje !== undefined) {
       const importante = error || /permiso|denegad|no disponible|activa voz|micrófono apagado\. activa|sin soporte/i.test(String(mensaje))
-      fijarEstado(mensaje || '')
-      if (importante) { mostrarBarra(); barrer(900); programarOcultar(9000); ajustarAlto(); return }
-      else if (!escuchando && barra && !barra.hidden && !listaActual.items.length && !String(textoNodo?.textContent ?? '').trim()) programarOcultar(2500)
+      const escrito = escribirEstado(mensaje || '', error)
+      if (importante) {
+        if (escrito) estadoProtegidoHasta = Date.now() + 9000
+        mostrarBarra(); barrer(900); programarOcultar(9000); ajustarAlto(); return
+      }
+      if (escrito && !escuchando && barra && !barra.hidden && !listaActual.items.length && !String(textoNodo?.textContent ?? '').trim()) programarOcultar(2500)
     }
     if (typeof activo === 'boolean' && !activo && !String(textoNodo?.textContent ?? '').trim() && !listaActual.items.length && barra && !barra.hidden) {
       programarOcultar(2500)
@@ -535,5 +587,5 @@ export function crearConsola({ alEnviar, alPulsar, alAjustar, alTono, alVozHabla
   sincronizar()
   dispositivo(false)
 
-  return { despertar, responder, estado, sonido, silenciar, dispositivo, cerrar, ocultar, dispose, abrirEditor, nivel, escucha, parcial }
+  return { despertar, responder, estado, sonido, silenciar, dispositivo, cerrar, ocultar, dispose, abrirEditor, nivel, escucha, parcial, subtitulo }
 }

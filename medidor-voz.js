@@ -61,8 +61,8 @@ export function crearMedidorVoz({ entorno = globalThis } = {}) {
         soltar()
         estado = 'error'
         motivo = ['NotAllowedError', 'SecurityError'].includes(e?.name)
-          ? 'Permiso de micrófono denegado: no llega audio.'
-          : 'No se puede abrir la entrada de audio.'
+          ? 'Permiso denegado para medir la entrada; la voz sigue activa.'
+          : 'No se puede medir la entrada de audio; la voz sigue activa.'
       }
       return estado
     }

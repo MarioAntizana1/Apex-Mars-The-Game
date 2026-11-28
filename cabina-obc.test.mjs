@@ -6,12 +6,12 @@ import { conectarOBC, tonoOBC } from './cabina-obc.js'
 // sólo sustituimos los dispositivos: el ritual y el enrutado son los de juego.
 function cabina(t, prefs = {voz:'siempre',idiomaVoz:'es-PE',mando:true,sonido:true}, opciones = {}) {
   const doc=new EventTarget(), ventana=new EventTarget(); doc.hasFocus=()=>true; doc.hidden=false
-  const m={zona:'juego',ordenes:[],respuestas:[],pulsos:[],ajustes:[],voces:[],menus:[],estados:[],niveles:[],parciales:[],escuchas:[],medidorAbierto:0,medidorCerrado:0,dispone:{micro:0,mando:0,consola:0}}
+  const m={zona:'juego',ordenes:[],respuestas:[],pulsos:[],ajustes:[],voces:[],menus:[],estados:[],niveles:[],parciales:[],subtitulos:[],escuchas:[],medidorAbierto:0,medidorCerrado:0,dispone:{micro:0,mando:0,consola:0}}
   const sim={comando:id=>{m.ordenes.push(id);return {texto:id,tono:'ok'}},ejes(){},look(){},mandoTurbo(){},frenar(){},recentrar(){},saltar(){},jump(){},interact(){m.interaccion=true}}
   const obc=conectarOBC({sim,zona:()=>m.zona,raizMenu:()=>null,accionMenu:(z,id)=>{m.menus.push([z,id]);return true},cerrarMapa:()=>{m.zona='juego'}},{
     doc,ventana,preferencias:()=>({...prefs}),
     consolaHUD:cb=>{m.hud=cb;return {despertar:()=>m.despierto=true,responder:r=>m.respuestas.push(r),dispositivo(){},estado:e=>m.estados.push(e),silenciar:v=>m.voces.push(v),sonido(){},dispose(){m.dispone.consola++},
-      nivel:(n,p)=>m.niveles.push([n,p]),escucha:v=>m.escuchas.push(v),parcial:t=>m.parciales.push(t)}},
+      nivel:(n,p)=>m.niveles.push([n,p]),escucha:v=>m.escuchas.push(v),parcial:t=>m.parciales.push(t),subtitulo:t=>m.subtitulos.push(t)}},
     reconocimiento:cb=>{m.micro=cb;return {configurar:o=>m.ajustes.push(o),pulsar:v=>m.pulsos.push(v),dispose(){m.dispone.micro++}}},
     medidor:()=>({abrir:async()=>{m.medidorAbierto++;return 'activo'},cerrar:()=>{m.medidorCerrado++},leer:()=>({nivel:opciones.nivel ?? .6,pico:opciones.pico ?? .7,activo:opciones.activo ?? true}),motivo:()=>'',disponible:()=>true}),    controlador:cb=>{m.pad=cb;return {actualizar(){},reset(){},dispose(){m.dispone.mando++}}}
   }); t.after(()=>obc.dispose()); return {...m,m,obc,doc,ventana}
@@ -34,7 +34,7 @@ test('con la voz apagada no se abre el micrófono para medir', async t=>{
 })
 
 test('el aviso de silencio sólo aparece al hablar sin señal y no se queda pegado', async t=>{
-  const {m,obc,ventana}=cabina(t,undefined,{nivel:0})
+  const {m,obc,ventana}=cabina(t,undefined,{nivel:0,pico:0})
   await new Promise(r=>setImmediate(r))
   // En «Siempre escuchando» el silencio es lo normal: no hay aviso.
   for(let i=0;i<300;i++)obc.actualizar(.016)
@@ -47,7 +47,7 @@ test('el aviso de silencio sólo aparece al hablar sin señal y no se queda pega
 
 test('cuando vuelve la señal el aviso desaparece del estado', async t=>{
   let nivel=.0
-  const {m,obc,ventana}=cabina(t,undefined,{get nivel(){return nivel}})
+  const {m,obc,ventana}=cabina(t,undefined,{get nivel(){return nivel},get pico(){return nivel}})
   await new Promise(r=>setImmediate(r))
   ventana.dispatchEvent(Object.assign(new Event('keydown'),{code:'KeyF'}))
   for(let i=0;i<300;i++)obc.actualizar(.016)
@@ -74,6 +74,17 @@ test('si el navegador no comparte el micrófono se retira la tira y la voz sigue
   await new Promise(r=>setImmediate(r))
   assert.equal(m.medidorAbierto,cerradosAntes>0?m.medidorAbierto:1) // no se reabre
   assert.equal(m.escuchas.at(-1),false)
+})
+
+test('la frase oída se subtitula aunque no sea una orden conocida', async t=>{
+  const {m}=cabina(t)
+  await new Promise(r=>setImmediate(r))
+  m.micro.alTexto('compra patatas',{directo:false})
+  assert.deepEqual(m.subtitulos,['compra patatas'])
+  assert.deepEqual(m.ordenes,[])
+  m.micro.alTexto('Nostromo, abre el mapa',{directo:false})
+  assert.deepEqual(m.subtitulos,['compra patatas','Nostromo, abre el mapa'])
+  assert.deepEqual(m.ordenes,['abrirMapa'])
 })
 
 test('voz y consola escrita comparten destino y respetan pausa, mapa y cierre',t=>{

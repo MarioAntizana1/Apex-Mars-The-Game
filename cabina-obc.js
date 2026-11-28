@@ -27,7 +27,7 @@ export function conectarOBC({sim, zona, raizMenu, accionMenu, pausar, guia, cerr
 }={}) {
   let prefs=preferencias(), terminado=false, hablando=false, config='', escuchaActiva=false, modoPad=null
   let consola, micro, ritual, mando, nivel
-  let silencio=0, avisoSilencio=false, sinMedidor=false
+  let silencio=0, avisoSilencio=false, sinMedidor=false, huboTranscripcion=false
   const abort=new AbortController(), opts={signal:abort.signal}, fuentes=new Set()
   const zonaActual=()=>terminado||doc.hidden?'bloqueado':zona()
   function ejecutar(id) {
@@ -50,7 +50,7 @@ export function conectarOBC({sim, zona, raizMenu, accionMenu, pausar, guia, cerr
     if(activa && !sinMedidor && prefs.voz!=='apagada') {
       nivel.abrir().then(estado=>{
         if(terminado || !escuchaActiva || prefs.voz==='apagada'){nivel.cerrar();return}
-        if(estado==='error')consola?.estado({escuchando:true,mensaje:nivel.motivo()})
+        if(estado==='error')consola?.estado({escuchando:true,mensaje:`Tira de nivel: ${nivel.motivo()}`})
       }).catch(()=>{})
       consola?.escucha?.(true)
     } else {
@@ -81,20 +81,22 @@ export function conectarOBC({sim, zona, raizMenu, accionMenu, pausar, guia, cerr
   }
   // El silencio es normal mientras se espera el nombre de activación. Sólo tiene
   // sentido avisar al que ya mantiene pulsado F/LB para hablar: si en ese gesto
-  // no llega nada, la entrada está muda. Al volver la señal el aviso se retira,
-  // porque una pausa entre palabras no es un micrófono desconectado.
+  // Una ganancia baja hace que la tira se mueva con niveles pequeños: el umbral
+  // es deliberadamente bajo y la ventana larga, para no acusar de mudo a un
+  // micrófono que sí funciona. Además, si el motor ya transcribió algo, hay
+  // audio: el aviso queda descartado para toda la sesión.
   let enSilencioAvisado=0
   function vigilarSilencio(lectura, dt) {
     if(!escuchaActiva || !lectura.activo) { silencio=0; return }
-  const hablandoAhora=fuentes.size>0
-    if(lectura.nivel > .04) {
+    if(huboTranscripcion) { silencio=0; if(avisoSilencio){avisoSilencio=false;consola?.estado({escuchando:true})} ; return }
+    if(!fuentes.size) { silencio=0; return }
+    if(lectura.nivel > .012 || lectura.pico > .05) {
       silencio=0
       if(avisoSilencio) { avisoSilencio=false; enSilencioAvisado=0; consola?.estado({escuchando:true}) }
       return
     }
-    if(!hablandoAhora) { silencio=0; return }
     silencio+=Math.max(0,Math.min(.25,Number(dt)||0))
-    if(silencio < 2 || avisoSilencio)return
+    if(silencio < 4 || avisoSilencio)return
     avisoSilencio=true; enSilencioAvisado=silencio
     consola?.estado({escuchando:true,mensaje:'Silencio en el micrófono: sigue pulsado F y habla cerca del equipo.'})
   }
@@ -109,8 +111,16 @@ export function conectarOBC({sim, zona, raizMenu, accionMenu, pausar, guia, cerr
   ritual=crearRitual({alDespertar:()=>consola.despertar(),alComando:ejecutar})
   nivel=medidor({entorno:ventana})
   micro=reconocimiento({
-    alTexto:(frase,opciones)=>{const z=zonaActual(); if(!hablando && (z==='juego'||z==='mapa'))ritual.texto(frase,opciones)},
-    alParcial:texto=>consola?.parcial?.(texto),
+    alTexto:(frase,opciones)=>{
+      // Subtítulo con la frase tal como la cerró el motor, aunque no sea una orden.
+      huboTranscripcion=true
+      consola?.subtitulo?.(frase)
+      const z=zonaActual(); if(!hablando && (z==='juego'||z==='mapa'))ritual.texto(frase,opciones)
+    },
+    alParcial:texto=>{
+      if(String(texto??'').trim())huboTranscripcion=true
+      consola?.parcial?.(texto)
+    },
     alEstado:e=>{
       // Si el navegador no deja compartir el micrófono con el reconocimiento, la
       // orden hablada manda: se retira la tira de nivel y se reintenta escuchar.

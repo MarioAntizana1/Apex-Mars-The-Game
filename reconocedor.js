@@ -4,9 +4,10 @@ import { explicarError, problemaCaptura } from './microfono.js'
 // campaña está activa; cada sesión posee sus callbacks (incluido el final de PTT).
 export function crearReconocedor({ alTexto = () => {}, alParcial = () => {}, alEstado = () => {}, entorno = globalThis } = {}) {
   const Motor = entorno.SpeechRecognition || entorno.webkitSpeechRecognition
-  let modo = 'apagada', idioma = 'es-ES', activo = false, pulsado = false
+  let modo = 'apagada', idioma = 'es-ES', idiomaEfectivo = 'es-ES', activo = false, pulsado = false
   let muerta = false, bloqueo = '', generacion = 0, sesion = null, espera, vacias = 0
   let causa = ''
+  const rechazados = new Set()
   const estado = (mensaje, escuchando = false, motor = '', error = false, directo = false) => {
     if (!muerta) alEstado({ mensaje, escuchando, motor, error, directo })
   }
@@ -43,15 +44,15 @@ export function crearReconocedor({ alTexto = () => {}, alParcial = () => {}, alE
       // Los resultados parciales no ejecutan nada: sólo muestran en el OBC lo
       // que el motor está oyendo, para distinguir un micrófono mudo de un motor
       // que no entiende la orden.
-      rec.lang = idioma; rec.continuous = false; rec.interimResults = true; rec.maxAlternatives = 1
+      rec.lang = idiomaEfectivo; rec.continuous = false; rec.interimResults = true; rec.maxAlternatives = 1
       if ('processLocally' in rec && typeof Motor.available === 'function') {
         // Consultar, nunca descargar un paquete ni solicitar permisos en bucle.
-        try { s.local = await Motor.available({ langs: [idioma], processLocally: true }) === 'available' } catch { /* servicio del navegador */ }
+        try { s.local = await Motor.available({ langs: [idiomaEfectivo], processLocally: true }) === 'available' } catch { /* servicio del navegador */ }
         if (!vigente()) return
         rec.processLocally = s.local
       }
       const motor = s.local ? 'local' : 'navegador'
-      rec.onstart = () => { if (vigente() && !s.termina) estado(s.local ? 'Reconocimiento local activo.' : 'Escuchando con el servicio del navegador.', true, motor, false, s.directo) }
+      rec.onstart = () => { if (vigente() && !s.termina) estado(`${s.local ? 'Reconocimiento local activo' : 'Escuchando con el servicio del navegador'} · ${idiomaEfectivo}.`, true, motor, false, s.directo) }
       rec.onaudiostart = () => { if (vigente() && !s.termina) estado('Captura de audio iniciada.', true, motor, false, s.directo) }
       const emitidos = new Set()
       rec.onresult = e => {
@@ -67,7 +68,21 @@ export function crearReconocedor({ alTexto = () => {}, alParcial = () => {}, alE
           } else alParcial(frase)
         }
       }
-      rec.onerror = e => { if (vigente() && !['no-speech','aborted'].includes(e.error)) bloquear(explicarError(e.error), e.error) }
+      rec.onerror = e => {
+        if (!vigente() || ['no-speech','aborted'].includes(e.error)) return
+        // Muchos navegadores no aceptan variantes regionales (es-PE, es-AR…).
+        // Antes que quedarse mudo, se reintenta una vez con el español base.
+        if (e.error === 'language-not-supported' && idiomaEfectivo !== 'es-ES') {
+          const rechazado = idiomaEfectivo
+          rechazados.add(rechazado)
+          idiomaEfectivo = 'es-ES'; causa = ''
+          cancelar()
+          estado(`«${rechazado}» no está disponible en este navegador; se usa español (es-ES).`, true, '', false, pulsado)
+          if (quiere()) iniciar()
+          return
+        }
+        bloquear(explicarError(e.error), e.error)
+      }
       rec.onend = () => {
         if (!vigente()) return
         sesion = null; clearTimeout(s.limite)
@@ -86,10 +101,13 @@ export function crearReconocedor({ alTexto = () => {}, alParcial = () => {}, alE
     if (muerta) return
     m = ['siempre','ptt'].includes(m) ? m : 'apagada'; a = Boolean(a)
     if (modo === m && idioma === i && activo === a) return
+    const idiomaNuevo = i !== idioma
     cancelar(); pulsado = false; vacias = 0
     // Suspender y volver a la cabina no debe volver a pedir un permiso denegado.
-    if (m === 'apagada' || (i !== idioma && causa === 'language-not-supported')) bloqueo = ''
+    if (m === 'apagada' || (idiomaNuevo && causa === 'language-not-supported')) bloqueo = ''
     modo = m; idioma = i; activo = a
+    // Un idioma ya rechazado vuelve directamente al respaldo; uno nuevo se prueba.
+    idiomaEfectivo = rechazados.has(i) ? 'es-ES' : i
     actualizarEstado()
   }
   function actualizarEstado() {

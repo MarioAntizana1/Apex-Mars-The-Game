@@ -67,6 +67,11 @@
 #obc[data-tono=pregunta] { border-top-color:#ffd08a }
 #obc[data-tono=error] { border-top-color:#ff8a6b }
 .obc-cabecera { display:flex; align-items:center; gap:.5rem }
+.obc-voz { margin:0 0 .22rem; padding:.16rem .3rem .2em; border-left:2px solid #8ff0c4; background:#0f1d1acc; color:#f2fbf5; font:600 .95rem/1.35 ui-monospace, Consolas, monospace; text-wrap:pretty; max-height:3.6em; overflow:auto }
+.obc-voz[hidden] { display:none!important }
+.obc-voz::before { content:'NOSTROMO OYE · '; color:#8ff0c4; font-size:.62rem; letter-spacing:.14em }
+.obc-voz[data-parcial=si] { color:#b6d6c9; font-weight:500; font-style:italic; border-left-color:#577a6f }
+.obc-voz[data-parcial=si]::before { content:'OYENDO · '; color:#7fa096 }
 .obc-marca { color:#9fe0c8; font-weight:700; letter-spacing:.12em; font-size:.66rem; text-transform:uppercase }
 .obc-estado { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right; color:#b9d6cb; font-size:.68rem }
 #obc[data-escuchando=si] .obc-estado::before { content:'●'; margin-right:.35em; color:#ff6a4d; animation:obc-latido 1.1s ease-in-out infinite }

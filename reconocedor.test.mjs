@@ -47,6 +47,27 @@ test('una pulsación nueva permite reintentar red o entrada sin bucles automáti
   }
 })
 
+test('un idioma rechazado cae al español base y lo anuncia sin quedarse mudo', async t => {
+  const {api,instancias,estados}=banco(); t.after(()=>api.dispose())
+  api.configurar({activo:true,modo:'siempre',idioma:'es-PE'}); await ciclo()
+  assert.equal(instancias[0].lang,'es-PE')
+  instancias[0].onerror({error:'language-not-supported'})
+  await ciclo(); await ciclo()
+  assert.equal(instancias[1]?.lang,'es-ES')
+  assert.match(estados.map(e=>e.mensaje).join(' '),/es-PE.*es-ES/i)
+  assert.equal(estados.at(-1).error,false)
+})
+
+test('un idioma ya rechazado no se reintenta al volver a la escucha', async t => {
+  const {api,instancias}=banco(); t.after(()=>api.dispose())
+  api.configurar({activo:true,modo:'siempre',idioma:'es-PE'}); await ciclo()
+  instancias[0].onerror({error:'language-not-supported'}); await ciclo(); await ciclo()
+  api.configurar({activo:false}); api.configurar({activo:true})
+  await ciclo(); await ciclo()
+  const ultima=instancias.at(-1)
+  assert.equal(ultima.lang,'es-ES')
+})
+
 test('un idioma rechazado no bloquea el idioma de reemplazo', async t => {
   const {api,instancias}=banco(); t.after(()=>api.dispose())
   api.configurar({activo:true,modo:'siempre'}); await ciclo(); instancias[0].onerror({error:'language-not-supported'})

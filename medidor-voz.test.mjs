@@ -58,6 +58,7 @@ test('un permiso denegado informa el motivo y no deja la tira encendida', async 
   const medidor = crearMedidorVoz({ entorno: banco.e })
   assert.equal(await medidor.abrir(), 'error')
   assert.match(medidor.motivo(), /denegado/i)
+  assert.match(medidor.motivo(), /la voz sigue activa/i)
   assert.equal(medidor.leer().nivel, 0)
 })
 

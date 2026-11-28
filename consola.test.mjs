@@ -83,6 +83,7 @@ class Documento {
 
 const IDS = [
   'obc', 'obc-estado', 'obc-texto', 'obc-kitt', 'obc-ayuda', 'obc-micro', 'obc-editor', 'obc-editor-form', 'obc-entrada',
+  'obc-voz',
   'obc-abrir', 'tablet-obc', 'obc-cerrar-editor', 'obc-nav', 'obc-pagina-prev', 'obc-pagina-next', 'obc-pagina',
   'eva', 'eva-vehiculo', 'eva-mapa', 'eva-uso', 'eva-ayuda',
   'opcion-voz', 'opcion-idioma-voz', 'opcion-voz-hablada', 'opcion-mando',
@@ -303,6 +304,47 @@ test('el reconocedor muestra lo que oye antes de decidir la orden', t => {
   assert.equal(e.$('obc-estado').textContent, 'Escuchando…')
 })
 
+test('lo que se oye se subtitula: parcial en vivo y final que se retira solo', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const e = montar(t)
+  const voz = e.$('obc-voz')
+  e.consola.parcial('noso tro mo')
+  assert.equal(voz.hidden, false)
+  assert.equal(voz.textContent, 'noso tro mo')
+  assert.equal(voz.dataset.parcial, 'si')
+  e.consola.parcial('Nostromo, estado del traje')
+  assert.equal(voz.textContent, 'Nostromo, estado del traje')
+  e.consola.parcial('')
+  assert.equal(voz.hidden, true) // se retira la vista provisional
+  e.consola.subtitulo('Nostromo, estado del traje')
+  assert.equal(voz.hidden, false)
+  assert.equal(voz.dataset.parcial, undefined)
+  t.mock.timers.tick(2700)
+  assert.equal(voz.hidden, true)
+})
+
+test('apagar la voz retira el subtítulo pendiente', t => {
+  const e = montar(t)
+  e.consola.subtitulo('dame diagnóstico de nave')
+  assert.equal(e.$('obc-voz').hidden, false)
+  e.consola.escucha(true)
+  e.consola.escucha(false)
+  assert.equal(e.$('obc-voz').hidden, true)
+})
+
+test('un aviso importante no lo pisa otro adaptador, pero un error sí manda', t => {
+  const e = montar(t)
+  e.consola.estado({ escuchando: true, mensaje: 'Tira de nivel: permiso denegado para medir la entrada.' })
+  assert.match(e.$('obc-estado').textContent, /Tira de nivel/)
+  e.consola.estado({ escuchando: false, error: true, mensaje: 'Permiso de micrófono denegado. Puedes escribir la orden.' })
+  assert.match(e.$('obc-estado').textContent, /Permiso de micrófono denegado/)
+  e.consola.estado({ escuchando: true, mensaje: 'Captura de audio iniciada.' })
+  assert.match(e.$('obc-estado').textContent, /Permiso de micrófono denegado/)
+  // Al apagarse la escucha el aviso puede retirarse: ya no hay nada que proteger.
+  e.consola.estado({ escuchando: false })
+  assert.match(e.$('obc-estado').textContent, /En espera/)
+})
+
 test('el editor envía una vez después de cerrarse, no envía vacío y devuelve el foco', t => {
   const e = montar(t)
   const entrada = e.$('obc-entrada')
@@ -498,7 +540,7 @@ test('la ayuda y la Tierra recorren el ritual real y la consola real', t => {
 test('index.html y menu.js exponen los formularios de voz y mando en ambos menús', () => {
   const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8')
   const menu = readFileSync(new URL('./menu.js', import.meta.url), 'utf8')
-  for (const id of ['obc', 'obc-texto', 'obc-kitt', 'obc-nav', 'obc-editor', 'obc-abrir', 'tablet-obc',
+  for (const id of ['obc', 'obc-texto', 'obc-kitt', 'obc-nav', 'obc-editor', 'obc-abrir', 'tablet-obc', 'obc-voz',
     'opcion-voz', 'opcion-idioma-voz', 'opcion-voz-hablada', 'opcion-mando', 'opcion-voz-privacidad',
     'pausa-voz', 'pausa-idioma-voz', 'pausa-voz-hablada', 'pausa-mando', 'pausa-voz-privacidad', 'eva-ayuda']) {
     assert.match(html, new RegExp(`id="${id}"`), id)
