@@ -8,7 +8,8 @@ export function normalizar(frase) {
     .replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
-const CORTESIA = /^(?:(?:por favor|oye|hola|eh) )+/
+const CORTESIA = /^(?:(?:por favor|oye|hola|eh)(?: |$))+/
+const ambiguos = new Set(AMBIGUOS.map(normalizar))
 const NEGACION = new Set(['no', 'nunca', 'jamas'])
 const NOMBRES = ['nostromo', 'nostrosmo']
 
@@ -67,7 +68,7 @@ export function resolverComando(frase, catalogo = COMANDOS) {
   const texto = normalizar(frase).replace(CORTESIA, '').trim()
   if (!texto) return { id: 'desconocido' }
   const tokens = texto.split(' ')
-  if (tokens.length === 1 && AMBIGUOS.includes(tokens[0])) return { id: 'ambiguo', candidatos: [] }
+  if (tokens.length === 1 && ambiguos.has(tokens[0])) return { id: 'ambiguo', candidatos: [] }
 
   // Dos órdenes en un mismo enunciado («estado del traje y estado del rover»)
   // son una pregunta: se responde pidiendo una sola, nunca ejecutando dos.
@@ -88,6 +89,7 @@ export function resolverComando(frase, catalogo = COMANDOS) {
   const llamada = separarLlamada(texto)
   const limpio = llamada ? `${llamada.antes} ${llamada.resto}`.trim() : texto
   if (!limpio) return { id: 'desconocido' }
+  if (ambiguos.has(limpio)) return { id: 'ambiguo', candidatos: [] }
   return resolverSimple(limpio, catalogo)
 }
 
@@ -123,9 +125,8 @@ export function crearRitual({ alDespertar = () => {}, alComando = () => {}, ahor
     if (!llamada && !directo && !despierto) return
     if (llamada) despertar()
     // «Nostromo» a secas despierta: no hay orden que ejecutar.
-    if (llamada && !llamada.antes && !llamada.resto) return
+    if (llamada && !`${llamada.antes} ${llamada.resto}`.trim().replace(CORTESIA, '')) return
     const resultado = resolverComando(normal, catalogo)
-    if (resultado.id === 'desconocido' && llamada) return
     dormir()
     alComando(resultado.id)
     return resultado

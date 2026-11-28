@@ -32,7 +32,26 @@ test('F y LB se agregan, la locución no puede darse órdenes a sí misma', t=>{
   const f=tipo=>ventana.dispatchEvent(Object.assign(new Event(tipo),{code:'KeyF'}))
   f('keydown');m.pad.alHablar(true);f('keyup');assert.deepEqual(m.pulsos,[true]);m.pad.alHablar(false);assert.deepEqual(m.pulsos,[true,false])
   m.hud.alVozHablada(true);m.micro.alTexto('Nostromo, apaga las luces',{directo:true});assert.deepEqual(m.ordenes,[]);assert.equal(m.ajustes.at(-1).activo,false)
-  m.hud.alVozHablada(false);assert.equal(m.ajustes.at(-1).activo,true);ventana.dispatchEvent(new Event('blur'));obc.actualizar(.016);assert.equal(m.ajustes.at(-1).activo,false)
+  m.hud.alVozHablada(false);assert.equal(m.ajustes.at(-1).activo,true);ventana.dispatchEvent(new Event('blur'));obc.actualizar(.016);assert.equal(m.ajustes.at(-1).activo,true)
+})
+
+test('perder el foco no silencia la escucha ni descarta la frase en camino', t=>{
+  const {m,obc,ventana}=cabina(t)
+  ventana.dispatchEvent(new Event('blur'));obc.actualizar(.016)
+  assert.equal(m.ajustes.at(-1).activo,true);assert.equal(m.ajustes.at(-1).modo,'siempre')
+  m.micro.alTexto('Nostromo, estado del traje',{directo:true});assert.deepEqual(m.ordenes,['traje'])
+  ventana.dispatchEvent(new Event('focus'));ventana.dispatchEvent(new Event('blur'))
+  m.micro.alTexto('abre el mapa',{directo:true});assert.deepEqual(m.ordenes,['traje','abrirMapa'])
+})
+
+test('F sin code se reanuda al acabar la locución y el blur suelta la pulsación', t=>{
+  const {m,ventana}=cabina(t,{voz:'ptt',mando:true})
+  const f=tipo=>ventana.dispatchEvent(Object.assign(new Event(tipo),{key:'F'}))
+  m.hud.alVozHablada(true); f('keydown'); m.hud.alVozHablada(false); assert.equal(m.pulsos.at(-1),true)
+  m.hud.alVozHablada(true); f('keyup'); m.hud.alVozHablada(false); assert.equal(m.pulsos.at(-1),false)
+  f('keydown'); assert.equal(m.pulsos.at(-1),true)
+  ventana.dispatchEvent(new Event('blur')); assert.equal(m.pulsos.at(-1),false)
+  m.micro.alTexto('estado del traje',{directo:true}); assert.deepEqual(m.ordenes,['traje'])
 })
 
 test('la voz nace apagada y el cierre libera micrófono, consola y mando', t=>{

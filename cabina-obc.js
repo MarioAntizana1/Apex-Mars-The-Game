@@ -24,7 +24,7 @@ export function tonoOBC(audio, destino, tipo) {
 export function conectarOBC({sim, zona, raizMenu, accionMenu, pausar, guia, cerrarMapa, alTono}, {
   ventana=window, doc=document, preferencias=leerPreferencias, consolaHUD=crearConsola, reconocimiento=crearReconocedor, controlador=crearMando
 }={}) {
-  let prefs=preferencias(), terminado=false, hablando=false, enFoco=doc.hasFocus(), config='', modoPad=null
+  let prefs=preferencias(), terminado=false, hablando=false, config='', escuchaActiva=false, modoPad=null
   let consola, micro, ritual, mando
   const abort=new AbortController(), opts={signal:abort.signal}, fuentes=new Set()
   const zonaActual=()=>terminado||doc.hidden?'bloqueado':zona()
@@ -42,11 +42,21 @@ export function conectarOBC({sim, zona, raizMenu, accionMenu, pausar, guia, cerr
   }
   function sincronizar() {
     if(!micro || terminado)return
-    const z=zonaActual(), activa=!hablando && enFoco && (z==='juego'||z==='mapa'), modo=z==='mapa' && prefs.voz!=='apagada'?'ptt':prefs.voz
-    const clave=`${z}/${activa}/${modo}/${prefs.idiomaVoz}`
-    if(clave!==config) {
-      config=clave; fuentes.clear(); ritual?.dormir(); micro.pulsar(false)
+    // Sólo suspenden la captura la pestaña oculta y los menús. Perder el foco de
+    // la ventana durante un instante (diálogo de permiso, alt-tab) no debe
+    // silenciar a Nostromo ni descartar la frase que ya venía en camino.
+    const z=zonaActual(), activa=!hablando && (z==='juego'||z==='mapa'), modo=z==='mapa' && prefs.voz!=='apagada'?'ptt':prefs.voz
+    const clave=`${z}/${modo}/${prefs.idiomaVoz}`
+    if(clave!==config || activa!==escuchaActiva) {
+      // Una locución suspende el micro, pero no equivale a soltar F/LB.
+      // Cambiar de zona, modo o foco sí exige una pulsación nueva.
+      if(clave!==config) {
+        fuentes.clear()
+        if(escuchaActiva && activa)micro.configurar({activo:false}) // invalida un final PTT de la zona anterior
+      } else if(hablando)fuentes.delete('hud')
+      config=clave; escuchaActiva=activa; ritual?.dormir()
       micro.configurar({modo,idioma:prefs.idiomaVoz,activo:activa})
+      if(activa)micro.pulsar(fuentes.size>0)
     }
     if(prefs.mando!==modoPad){modoPad=prefs.mando; mando?.reset(); if(!modoPad)consola.dispositivo(false)}
   }
@@ -69,17 +79,19 @@ export function conectarOBC({sim, zona, raizMenu, accionMenu, pausar, guia, cerr
   function actualizarPreferencias(){prefs=preferencias();consola?.sonido(prefs.sonido);sincronizar()}
   ventana.addEventListener('apex:micro-comprobado',()=>micro.reintentar(),opts)
   ventana.addEventListener('apex:preferencias',actualizarPreferencias,opts)
+  const teclaHablar=e=>e.code==='KeyF' || ((!e.code || e.code==='Unidentified') && e.key?.toLowerCase()==='f')
   ventana.addEventListener('keydown',e=>{
     if(!e.repeat)consola.dispositivo(false)
-    if(e.code!=='KeyF'||e.repeat||e.ctrlKey||e.metaKey||e.altKey||e.target?.isContentEditable||e.target?.matches?.('input,textarea,select'))return
+    if(!teclaHablar(e)||e.repeat||e.ctrlKey||e.metaKey||e.altKey||e.target?.isContentEditable||e.target?.matches?.('input,textarea,select'))return
     if(['juego','mapa'].includes(zonaActual())){e.preventDefault();hablar('f',true)}
   },opts)
-  ventana.addEventListener('keyup',e=>{if(e.code==='KeyF')hablar('f',false)},opts)
+  ventana.addEventListener('keyup',e=>{if(teclaHablar(e))hablar('f',false)},opts)
   ventana.addEventListener('pointerdown',()=>consola.dispositivo(false),opts)
   const bloquear=()=>{mando.reset();fuentes.clear();micro.pulsar(false);sincronizar()}
-  ventana.addEventListener('blur',()=>{enFoco=false;bloquear()},opts)
-  ventana.addEventListener('focus',()=>{enFoco=true;sincronizar()},opts)
-  doc.addEventListener('visibilitychange',()=>{enFoco=doc.hasFocus();bloquear()},opts)
+  // Perder el foco cancela la pulsación (su keyup ya no llegará), no la escucha.
+  ventana.addEventListener('blur',bloquear,opts)
+  ventana.addEventListener('focus',()=>sincronizar(),opts)
+  doc.addEventListener('visibilitychange',bloquear,opts)
   actualizarPreferencias()
   return {actualizar(dt){sincronizar();if(prefs.mando && zonaActual()!=='bloqueado')mando.actualizar(dt)},
     dispose(){terminado=true;abort.abort();ritual.dormir();micro.dispose();mando.dispose();consola.dispose()}}

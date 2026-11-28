@@ -26,7 +26,11 @@ Sin micrófono, usa **OBC · Escribir**. Puedes completar la partida sin activar
 
 ## Micrófono y privacidad
 
-Usa HTTPS o el servidor local en `http://127.0.0.1:8123/`. Al cambiar de *Apagada* a un modo de voz en Opciones o en Pausa se solicita acceso al dispositivo y se cierran las pistas de prueba. **Probar permiso de micrófono** permite repetir la comprobación sin cambiar el modo elegido. Si denegaste el permiso, cámbialo en el navegador, vuelve a probar y reanuda la exploración. La prueba confirma la entrada de audio, no la disponibilidad del servicio ni del idioma. Si el navegador permite comprobar que el paquete de idioma ya está instalado, se prefiere ese procesamiento local. En caso contrario el **servicio de voz del navegador puede recibir el audio**, incluso mientras espera la palabra de activación. El juego no archiva grabaciones ni transcripciones; aplica la lista de órdenes al resultado del navegador. Para dejar de capturar, selecciona *Apagada*. Una denegación de permiso no impide escribir órdenes.
+Usa HTTPS o el servidor local en `http://127.0.0.1:8123/`. Al cambiar de *Apagada* a un modo de voz en Opciones o en Pausa se solicita acceso al dispositivo y se cierran las pistas de prueba.
+
+Para saber si llega sonido y no solo si tienes permiso, pulsa **Probar señal del micrófono** y habla durante cuatro segundos: muestra qué entrada se está usando y distingue el silencio de una señal audible, sin grabar ni reconocer palabras. Si aparece otra entrada o no se detecta señal, revisa el silencio físico y la entrada elegida en el navegador o en los ajustes de sonido del sistema.
+
+Que llegue sonido no garantiza que el servicio pueda transcribirlo. Vuelve a la exploración, mantén **F**, espera a que la barra anuncie la captura y di **«Estado del traje»** antes de soltar. Si el navegador permite comprobar que el paquete de idioma ya está instalado, se prefiere ese procesamiento local. En caso contrario el **servicio de voz del navegador puede recibir el audio**, incluso mientras espera la palabra de activación. Perder el foco un instante (un diálogo del navegador, otra ventana) no corta la escucha; ocultar la pestaña o entrar en un menú sí la suspende. El juego no archiva grabaciones ni transcripciones; aplica la lista de órdenes al resultado del navegador. Para dejar de capturar, selecciona *Apagada*. Una denegación de permiso no impide escribir órdenes.
 
 ## Dos mandos, un astronauta
 

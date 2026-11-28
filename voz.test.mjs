@@ -42,6 +42,13 @@ test('una orden en el mismo enunciado; PTT y escritura no necesitan la llamada',
   assert.deepEqual(r.eventos, ['wake', 'mapa', 'ambiguo', 'desconocido', 'wake'])
 })
 
+test('una orden llamada pero incompleta o desconocida recibe la aclaración', () => {
+  const eventos=[]; const r=crearRitual({alComando:id=>eventos.push(id)})
+  r.texto('Oye Nostromo'); assert.deepEqual(eventos,[])
+  r.texto('estado del traje'); r.texto('Nostromo, estado'); r.texto('Nostromo, diagnóstico'); r.texto('Nostromo, compra patatas')
+  assert.deepEqual(eventos,['traje','ambiguo','ambiguo','desconocido'])
+})
+
 test('tolera errores habituales del reconocedor de voz', () => {
   const casos = [
     ['dame el diagnostico de la nave', 'diagnostico'],

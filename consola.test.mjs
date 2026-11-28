@@ -253,6 +253,18 @@ test('escuchar actualiza el indicador sin abrir la consola; el aviso importante 
   assert.equal(e.$('obc-micro').getAttribute('aria-pressed'), 'false')
 })
 
+test('la escucha directa se ve mientras se habla y se retira al terminar', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const e = montar(t)
+  e.consola.estado({ directo: true, escuchando: true, mensaje: 'Escuchando…' })
+  t.mock.timers.tick(4000)
+  assert.equal(e.$('obc').hidden, false)
+  assert.equal(e.$('obc-micro').getAttribute('aria-pressed'), 'true')
+  e.consola.estado({ escuchando: false, mensaje: 'Mantén pulsado para hablar.' })
+  t.mock.timers.tick(3000)
+  assert.equal(e.$('obc').hidden, true)
+})
+
 test('el editor envía una vez después de cerrarse, no envía vacío y devuelve el foco', t => {
   const e = montar(t)
   const entrada = e.$('obc-entrada')

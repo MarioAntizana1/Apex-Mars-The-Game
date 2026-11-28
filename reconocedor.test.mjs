@@ -18,6 +18,30 @@ function banco(disponible = 'available') {
 }
 const ciclo = () => new Promise(resolve=>setImmediate(resolve))
 
+test('el estado PTT distingue solicitud, inicio y captura real', async t => {
+  const {api,instancias,estados}=banco(); t.after(()=>api.dispose())
+  api.configurar({modo:'ptt',activo:true}); api.pulsar(true)
+  assert.equal(estados.at(-1).directo,true); assert.equal(estados.at(-1).escuchando,false)
+  await ciclo(); assert.equal(estados.at(-1).escuchando,true)
+  instancias[0].onaudiostart(); assert.match(estados.at(-1).mensaje,/captura de audio/i); assert.equal(estados.at(-1).directo,true)
+})
+
+test('una pulsación nueva permite reintentar red o entrada sin bucles automáticos', async t => {
+  for(const error of ['network','audio-capture']) {
+    const {api,instancias}=banco(); t.after(()=>api.dispose())
+    api.configurar({activo:true,modo:'ptt'}); api.pulsar(true); await ciclo()
+    const fin=instancias[0].onend; instancias[0].onerror({error}); fin()
+    api.configurar({activo:false}); api.configurar({activo:true}); assert.equal(instancias.length,1)
+    api.pulsar(true); await ciclo(); assert.equal(instancias[1]?.inicios,1)
+  }
+})
+
+test('un idioma rechazado no bloquea el idioma de reemplazo', async t => {
+  const {api,instancias}=banco(); t.after(()=>api.dispose())
+  api.configurar({activo:true,modo:'siempre'}); await ciclo(); instancias[0].onerror({error:'language-not-supported'})
+  api.configurar({idioma:'es-PE'}); await ciclo(); assert.equal(instancias[1]?.lang,'es-PE'); assert.equal(instancias[1].inicios,1)
+})
+
 test('PTT espera la pulsación, usa paquete local, conserva el final al soltar', async () => {
   const {api,instancias,textos,final} = banco()
   api.configurar({modo:'ptt',activo:true}); assert.equal(instancias.length,0)

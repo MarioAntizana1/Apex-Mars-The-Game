@@ -284,8 +284,11 @@ export function crearConsola({ alEnviar, alPulsar, alAjustar, alTono, alVozHabla
     ajustarAlto()
     return { tipo: 'texto' }
   }
-  function estado({ escuchando: activo, mensaje, error = false } = {}) {
+  function estado({ escuchando: activo, mensaje, error = false, directo = false } = {}) {
     if (!vivo) return
+    // Mostrar el gesto explícito de F/LB incluso si no había diálogo. La
+    // espera pasiva de «Nostromo» no debe abrir la consola en cada reinicio.
+    if (directo) { mostrarBarra(); ajustarAlto() }
     if (typeof activo === 'boolean') {
       escuchando = activo
       micro?.setAttribute?.('aria-pressed', String(escuchando))
@@ -294,14 +297,14 @@ export function crearConsola({ alEnviar, alPulsar, alAjustar, alTono, alVozHabla
         else delete barra.dataset.escuchando
       }
       if (mensaje === undefined) fijarEstado(escuchando ? 'Escuchando…' : 'En espera')
-      // Escuchar no abre la barra: el OBC sólo aparece al despertar o al responder.
+      // No retirar el indicador mientras se está hablando.
       if (escuchando && !barra?.hidden) cancelarOcultar()
     }
     if (mensaje !== undefined) {
       const importante = error || /permiso|denegad|no disponible|activa voz|micrófono apagado\. activa|sin soporte/i.test(String(mensaje))
       fijarEstado(mensaje || '')
       if (importante) { mostrarBarra(); barrer(900); programarOcultar(9000); ajustarAlto(); return }
-      else if (barra && !barra.hidden && !listaActual.items.length && !String(textoNodo?.textContent ?? '').trim()) programarOcultar(2500)
+      else if (!escuchando && barra && !barra.hidden && !listaActual.items.length && !String(textoNodo?.textContent ?? '').trim()) programarOcultar(2500)
     }
     if (typeof activo === 'boolean' && !activo && !String(textoNodo?.textContent ?? '').trim() && !listaActual.items.length && barra && !barra.hidden) {
       programarOcultar(2500)

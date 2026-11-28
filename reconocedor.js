@@ -1,4 +1,4 @@
-import { explicarError, problemaCaptura, impedimentoMicrofono } from './microfono.js'
+import { explicarError, problemaCaptura } from './microfono.js'
 
 // Web Speech no es uniforme entre navegadores. El motor sólo existe mientras la
 // campaña está activa; cada sesión posee sus callbacks (incluido el final de PTT).
@@ -6,8 +6,9 @@ export function crearReconocedor({ alTexto = () => {}, alEstado = () => {}, ento
   const Motor = entorno.SpeechRecognition || entorno.webkitSpeechRecognition
   let modo = 'apagada', idioma = 'es-ES', activo = false, pulsado = false
   let muerta = false, bloqueo = '', generacion = 0, sesion = null, espera, vacias = 0
-  const estado = (mensaje, escuchando = false, motor = '', error = false) => {
-    if (!muerta) alEstado({ mensaje, escuchando, motor, error })
+  let causa = ''
+  const estado = (mensaje, escuchando = false, motor = '', error = false, directo = false) => {
+    if (!muerta) alEstado({ mensaje, escuchando, motor, error, directo })
   }
   const quiere = () => activo && !bloqueo && !muerta && (modo === 'siempre' || (modo === 'ptt' && pulsado))
   function cancelar() {
@@ -16,19 +17,24 @@ export function crearReconocedor({ alTexto = () => {}, alEstado = () => {}, ento
     if (!s) return
     clearTimeout(s.limite)
     if (s.rec) {
-      s.rec.onresult = s.rec.onerror = s.rec.onend = s.rec.onstart = null
+      s.rec.onresult = s.rec.onerror = s.rec.onend = s.rec.onstart = s.rec.onaudiostart = null
       try { s.rec.abort() } catch { /* ya terminó */ }
     }
   }
-  function bloquear(mensaje) {
-    cancelar(); bloqueo = `${mensaje} Puedes escribir la orden.`
+  function bloquear(mensaje, codigo = '') {
+    cancelar(); causa = codigo
+    const recuperable = ['network','audio-capture'].includes(causa)
+    bloqueo = `${mensaje} ${recuperable ? 'Vuelve a pulsar para reintentar. ' : ''}Puedes escribir la orden.`
     estado(bloqueo, false, '', true)
   }
   async function iniciar() {
     if (!quiere() || sesion) return
-    const problema = problemaCaptura(entorno) || impedimentoMicrofono(entorno)
+    // La prueba de permiso del menú es informativa: sólo el propio motor decide
+    // si puede capturar. Un getUserMedia denegado (p. ej. por política del
+    // navegador) no debe silenciar un reconocimiento que sí funcionaría.
+    const problema = problemaCaptura(entorno)
     if (problema) { bloquear(problema); return }
-    estado('Iniciando reconocimiento…')
+    estado('Iniciando reconocimiento…', false, '', false, pulsado)
     const s = sesion = { rec: null, directo: pulsado, termina: false, limite: null, local: false }
     const vigente = () => sesion === s && !muerta
     try {
@@ -41,7 +47,8 @@ export function crearReconocedor({ alTexto = () => {}, alEstado = () => {}, ento
         rec.processLocally = s.local
       }
       const motor = s.local ? 'local' : 'navegador'
-      rec.onstart = () => { if (vigente() && !s.termina) estado(s.local ? 'Reconocimiento local activo.' : 'Escuchando con el servicio del navegador.', true, motor) }
+      rec.onstart = () => { if (vigente() && !s.termina) estado(s.local ? 'Reconocimiento local activo.' : 'Escuchando con el servicio del navegador.', true, motor, false, s.directo) }
+      rec.onaudiostart = () => { if (vigente() && !s.termina) estado('Captura de audio iniciada.', true, motor, false, s.directo) }
       const emitidos = new Set()
       rec.onresult = e => {
         if (!vigente()) return
@@ -52,7 +59,7 @@ export function crearReconocedor({ alTexto = () => {}, alEstado = () => {}, ento
           }
         }
       }
-      rec.onerror = e => { if (vigente() && !['no-speech','aborted'].includes(e.error)) bloquear(explicarError(e.error)) }
+      rec.onerror = e => { if (vigente() && !['no-speech','aborted'].includes(e.error)) bloquear(explicarError(e.error), e.error) }
       rec.onend = () => {
         if (!vigente()) return
         sesion = null; clearTimeout(s.limite)
@@ -72,21 +79,26 @@ export function crearReconocedor({ alTexto = () => {}, alEstado = () => {}, ento
     if (modo === m && idioma === i && activo === a) return
     cancelar(); pulsado = false; vacias = 0
     // Suspender y volver a la cabina no debe volver a pedir un permiso denegado.
-    if (m === 'apagada') bloqueo = ''
+    if (m === 'apagada' || (i !== idioma && causa === 'language-not-supported')) bloqueo = ''
     modo = m; idioma = i; activo = a
     actualizarEstado()
   }
   function actualizarEstado() {
     if (!activo || modo === 'apagada') { estado(!activo ? 'Micrófono suspendido.' : 'Micrófono apagado.'); return }
     if (bloqueo) { estado(bloqueo, false, '', true); return }
-    const problema = problemaCaptura(entorno) || impedimentoMicrofono(entorno)
+    const problema = problemaCaptura(entorno)
     if (problema) { bloquear(problema); return }
     if (quiere()) iniciar()
     else estado('Mantén pulsado para hablar.')
   }
   function pulsar(valor) {
-    if (!activo || muerta || bloqueo || modo === 'apagada' || pulsado === !!valor) return
+    if (!activo || muerta || modo === 'apagada' || pulsado === !!valor) return
     pulsado = !!valor
+    if (bloqueo) {
+      // Reintento explícito tras un fallo transitorio; nunca repetir el permiso.
+      if (!pulsado || !['network','audio-capture'].includes(causa)) return
+      bloqueo = ''
+    }
     if (pulsado) { cancelar(); iniciar(); return }
     const s = sesion
     if (s?.iniciada && s.directo) {
