@@ -95,9 +95,11 @@
             <option value="es-PE">Español (Perú)</option>
           </select>
         </div>
-        <label><input id="opcion-voz-hablada" type="checkbox"> Voz hablada del OBC (experimental)</label>
+        <label><input id="opcion-voz-hablada" type="checkbox"> Voz hablada del OBC · Nostromo (grave y pausada)</label>
         <label><input id="opcion-mando" type="checkbox"> Mando de Xbox</label>
-        <p class="opcion-nota" id="opcion-voz-privacidad">El micrófono solo se activa con «Pulsar para hablar» o «Siempre escuchando». Con el reconocimiento del navegador, el audio puede enviarse al servicio de voz del navegador; si el equipo ofrece reconocimiento local, el audio no sale de él. El juego no guarda lo que dices.</p>
+        <button type="button" id="opcion-probar-micro">Probar permiso de micrófono</button>
+        <p class="opcion-nota" id="opcion-estado-micro" role="status"></p>
+        <p class="opcion-nota" id="opcion-voz-privacidad">Fuera de la prueba, el micrófono solo se activa con «Pulsar para hablar» o «Siempre escuchando». Con el reconocimiento del navegador, el audio puede enviarse al servicio de voz del navegador; si el equipo ofrece reconocimiento local, el audio no sale de él. El juego no guarda lo que dices.</p>
       </fieldset>
       <button type="button" id="menu-volver">Volver a los destinos</button>
     </section>
@@ -237,8 +239,10 @@
                 <option value="es-PE">Español (Perú)</option>
               </select>
             </div>
-            <label><input id="pausa-voz-hablada" type="checkbox"> Voz hablada del OBC (experimental)</label>
+            <label><input id="pausa-voz-hablada" type="checkbox"> Voz hablada del OBC · Nostromo (grave y pausada)</label>
             <label><input id="pausa-mando" type="checkbox"> Mando de Xbox</label>
+            <button type="button" id="pausa-probar-micro">Probar permiso de micrófono</button>
+            <p class="opcion-nota" id="pausa-estado-micro" role="status"></p>
             <p class="opcion-nota" id="pausa-voz-privacidad">El micrófono solo se activa a propósito. Con el reconocimiento del navegador el audio puede enviarse a su servicio; si el equipo ofrece reconocimiento local, no sale de él. El juego no guarda lo que dices.</p>
           </fieldset>
           <button id="pausa-opciones-volver" type="button">Volver al menú de pausa</button>

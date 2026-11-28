@@ -106,8 +106,16 @@ export function crearConsola({ alEnviar, alPulsar, alAjustar, alTono, alVozHabla
       const turno = ++turnoVoz
       const utterance = new Utterance(texto)
       utterance.lang = prefs.idiomaVoz || 'es-ES'
-      utterance.rate = 1.02
-      utterance.pitch = .92
+      // El catálogo del sistema puede llegar después del primer mensaje. Consultarlo
+      // en cada respuesta permite aprovecharlo sin retrasar la primera lectura.
+      const idioma = utterance.lang.toLowerCase()
+      const voces = (sintesis.getVoices?.() ?? []).filter(v => v.lang?.toLowerCase().split(/[-_]/)[0] === idioma.split('-')[0])
+      const afinidad = v => (v.lang.toLowerCase().replace('_', '-') === idioma ? 4 : 0)
+        + (/\b(pablo|jorge|diego|alvaro|álvaro|alonso|alex|carlos|raul|raúl)\b/i.test(v.name) ? 2 : 0)
+        + (v.localService ? 1 : 0)
+      if (voces.length) utterance.voice = voces.reduce((a, b) => afinidad(b) > afinidad(a) ? b : a)
+      utterance.rate = .89
+      utterance.pitch = .80
       utterance.onend = () => { if (turno === turnoVoz) avisarVoz(false) }
       utterance.onerror = () => { if (turno === turnoVoz) avisarVoz(false) }
       avisarVoz(true)
@@ -276,7 +284,7 @@ export function crearConsola({ alEnviar, alPulsar, alAjustar, alTono, alVozHabla
     ajustarAlto()
     return { tipo: 'texto' }
   }
-  function estado({ escuchando: activo, mensaje } = {}) {
+  function estado({ escuchando: activo, mensaje, error = false } = {}) {
     if (!vivo) return
     if (typeof activo === 'boolean') {
       escuchando = activo
@@ -290,9 +298,9 @@ export function crearConsola({ alEnviar, alPulsar, alAjustar, alTono, alVozHabla
       if (escuchando && !barra?.hidden) cancelarOcultar()
     }
     if (mensaje !== undefined) {
-      const importante = /permiso|denegad|no disponible|activa voz|micrófono apagado\. activa|sin soporte/i.test(String(mensaje))
+      const importante = error || /permiso|denegad|no disponible|activa voz|micrófono apagado\. activa|sin soporte/i.test(String(mensaje))
       fijarEstado(mensaje || '')
-      if (importante) { mostrarBarra(); barrer(900); programarOcultar(9000); ajustarAlto() }
+      if (importante) { mostrarBarra(); barrer(900); programarOcultar(9000); ajustarAlto(); return }
       else if (barra && !barra.hidden && !listaActual.items.length && !String(textoNodo?.textContent ?? '').trim()) programarOcultar(2500)
     }
     if (typeof activo === 'boolean' && !activo && !String(textoNodo?.textContent ?? '').trim() && !listaActual.items.length && barra && !barra.hidden) {
@@ -436,9 +444,8 @@ export function crearConsola({ alEnviar, alPulsar, alAjustar, alTono, alVozHabla
   on(editor, 'keydown', evento => evento?.stopPropagation?.())
   on(micro, 'click', () => {
     if (!vivo) return
-    escuchando = !escuchando
-    estado({ escuchando })
-    try { alPulsar?.(escuchando) } catch { /* el reconocedor decide */ }
+    // El botón solicita captura. Sólo onstart del motor confirma que escucha.
+    try { alPulsar?.() } catch { /* el reconocedor decide */ }
   })
   on(pagAnterior, 'click', () => cambiarPagina(-1))
   on(pagSiguiente, 'click', () => cambiarPagina(1))

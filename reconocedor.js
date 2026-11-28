@@ -1,11 +1,13 @@
+import { explicarError, problemaCaptura, impedimentoMicrofono } from './microfono.js'
+
 // Web Speech no es uniforme entre navegadores. El motor sólo existe mientras la
 // campaña está activa; cada sesión posee sus callbacks (incluido el final de PTT).
 export function crearReconocedor({ alTexto = () => {}, alEstado = () => {}, entorno = globalThis } = {}) {
   const Motor = entorno.SpeechRecognition || entorno.webkitSpeechRecognition
   let modo = 'apagada', idioma = 'es-ES', activo = false, pulsado = false
   let muerta = false, bloqueo = '', generacion = 0, sesion = null, espera, vacias = 0
-  const estado = (mensaje, escuchando = false, motor = '') => {
-    if (!muerta) alEstado({ mensaje, escuchando, motor })
+  const estado = (mensaje, escuchando = false, motor = '', error = false) => {
+    if (!muerta) alEstado({ mensaje, escuchando, motor, error })
   }
   const quiere = () => activo && !bloqueo && !muerta && (modo === 'siempre' || (modo === 'ptt' && pulsado))
   function cancelar() {
@@ -18,13 +20,15 @@ export function crearReconocedor({ alTexto = () => {}, alEstado = () => {}, ento
       try { s.rec.abort() } catch { /* ya terminó */ }
     }
   }
-  function bloquear(error) {
-    cancelar(); bloqueo = error
-    estado(error === 'not-allowed' || error === 'service-not-allowed' ? 'Permiso de micrófono denegado. Puedes escribir la orden.' : 'Reconocimiento no disponible. Puedes escribir la orden.')
+  function bloquear(mensaje) {
+    cancelar(); bloqueo = `${mensaje} Puedes escribir la orden.`
+    estado(bloqueo, false, '', true)
   }
   async function iniciar() {
     if (!quiere() || sesion) return
-    if (!Motor) { bloquear('sin-soporte'); return }
+    const problema = problemaCaptura(entorno) || impedimentoMicrofono(entorno)
+    if (problema) { bloquear(problema); return }
+    estado('Iniciando reconocimiento…')
     const s = sesion = { rec: null, directo: pulsado, termina: false, limite: null, local: false }
     const vigente = () => sesion === s && !muerta
     try {
@@ -48,7 +52,7 @@ export function crearReconocedor({ alTexto = () => {}, alEstado = () => {}, ento
           }
         }
       }
-      rec.onerror = e => { if (vigente() && !['no-speech','aborted'].includes(e.error)) bloquear(e.error || 'error') }
+      rec.onerror = e => { if (vigente() && !['no-speech','aborted'].includes(e.error)) bloquear(explicarError(e.error)) }
       rec.onend = () => {
         if (!vigente()) return
         sesion = null; clearTimeout(s.limite)
@@ -60,7 +64,7 @@ export function crearReconocedor({ alTexto = () => {}, alEstado = () => {}, ento
         }
       }
       rec.start(); s.iniciada = true
-    } catch (e) { if (vigente()) bloquear(e?.name === 'NotAllowedError' ? 'not-allowed' : 'error') }
+    } catch (e) { if (vigente()) bloquear(explicarError(e?.name === 'NotAllowedError' ? 'not-allowed' : 'error')) }
   }
   function configurar({ modo: m = modo, idioma: i = idioma, activo: a = activo } = {}) {
     if (muerta) return
@@ -70,8 +74,15 @@ export function crearReconocedor({ alTexto = () => {}, alEstado = () => {}, ento
     // Suspender y volver a la cabina no debe volver a pedir un permiso denegado.
     if (m === 'apagada') bloqueo = ''
     modo = m; idioma = i; activo = a
+    actualizarEstado()
+  }
+  function actualizarEstado() {
+    if (!activo || modo === 'apagada') { estado(!activo ? 'Micrófono suspendido.' : 'Micrófono apagado.'); return }
+    if (bloqueo) { estado(bloqueo, false, '', true); return }
+    const problema = problemaCaptura(entorno) || impedimentoMicrofono(entorno)
+    if (problema) { bloquear(problema); return }
     if (quiere()) iniciar()
-    else estado(!activo ? 'Micrófono suspendido.' : modo === 'apagada' ? 'Micrófono apagado.' : bloqueo ? 'Micrófono no disponible. Puedes escribir la orden.' : modo === 'siempre' ? 'OBC en espera de «Nostromo».' : 'Mantén pulsado para hablar.')
+    else estado('Mantén pulsado para hablar.')
   }
   function pulsar(valor) {
     if (!activo || muerta || bloqueo || modo === 'apagada' || pulsado === !!valor) return
@@ -84,8 +95,15 @@ export function crearReconocedor({ alTexto = () => {}, alEstado = () => {}, ento
       s.limite = setTimeout(() => { if (sesion === s) { cancelar(); estado('Micrófono en espera.'); iniciar() } }, 2500)
       try { s.rec.stop(); return } catch { /* fuera de sesión */ }
     }
-    cancelar(); iniciar()
+    cancelar()
+    if (quiere()) iniciar()
+    else estado('Mantén pulsado para hablar.')
   }
   function dispose() { muerta = true; cancelar() }
-  return { configurar, pulsar, dispose }
+  function reintentar() {
+    if (muerta || !bloqueo) return
+    bloqueo = ''; pulsado = false
+    actualizarEstado()
+  }
+  return { configurar, pulsar, reintentar, dispose }
 }

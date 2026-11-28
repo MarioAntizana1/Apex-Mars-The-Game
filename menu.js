@@ -1,4 +1,5 @@
 import { iniciarVueloCreditos } from './creditos-vuelo.js'
+import { conectarPermisoMicrofono } from './microfono.js'
 import { crearListaCreditos } from './creditos.js'
 import { guardarPreferencias, leerPreferencias } from './preferencias.js'
 
@@ -34,6 +35,8 @@ export function crearMenu(C, viewer, ellipsoid, opciones = {}) {
   let cienciaAplicada = null
 
   const escuchar = (elemento, tipo, manejador) => elemento?.addEventListener(tipo, manejador, { signal })
+
+  conectarPermisoMicrofono({ documento: document, entorno: globalThis, signal, modo: () => leerPreferencias().voz })
 
   function reducido() {
     return opciones.reduced === true ||
@@ -166,7 +169,7 @@ export function crearMenu(C, viewer, ellipsoid, opciones = {}) {
   })
   escuchar(voz, 'change', () => {
     guardarPreferencias({ voz: voz.value })
-    anunciar({ apagada: 'Voz del OBC apagada', ptt: 'Pulsar para hablar · mantén F o LB', siempre: 'OBC escuchando «Nostromo»' }[voz.value] ?? 'Voz del OBC actualizada')
+    anunciar({ apagada: 'Voz del OBC apagada', ptt: 'Pulsar para hablar · mantén F o LB', siempre: 'Escucha de «Nostromo» seleccionada para la exploración' }[voz.value] ?? 'Voz del OBC actualizada')
   })
   escuchar(idiomaVoz, 'change', () => {
     guardarPreferencias({ idiomaVoz: idiomaVoz.value })

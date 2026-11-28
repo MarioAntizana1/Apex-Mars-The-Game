@@ -60,13 +60,14 @@ export function conectarOBC({sim, zona, raizMenu, accionMenu, pausar, guia, cerr
   }
   ritual=crearRitual({alDespertar:()=>consola.despertar(),alComando:ejecutar})
   micro=reconocimiento({alTexto:(frase,opciones)=>{const z=zonaActual(); if(!hablando && (z==='juego'||z==='mapa'))ritual.texto(frase,opciones)},alEstado:e=>consola?.estado(e)})
-  consola=consolaHUD({alEnviar:frase=>ritual.texto(frase,{directo:true}),alPulsar:v=>hablar('hud',v),alAjustar:()=>actualizarPreferencias(),alTono,alVozHablada:v=>{hablando=v;sincronizar()}})
+  consola=consolaHUD({alEnviar:frase=>ritual.texto(frase,{directo:true}),alPulsar:()=>hablar('hud',!fuentes.has('hud')),alAjustar:()=>actualizarPreferencias(),alTono,alVozHablada:v=>{hablando=v;sincronizar()}})
   const juego={usar:()=>sim.interact(),saltar:()=>sim.jump(),vehiculo:()=>sim.vehicle(),mapa:()=>sim.mapa(),recentrar:()=>sim.recentrar(),pausa:pausar,guia}
   mando=controlador({contexto:()=>{const z=zonaActual();return z==='juego'||z==='bloqueado'?z:'menu'},
     alEje:(x,z)=>sim.ejes(x,z),alMirar:(x,y)=>sim.look(x,y),alTurbo:v=>sim.mandoTurbo(v),alFreno:v=>sim.frenar(v),alHablar:v=>hablar('lb',v),alDispositivo:v=>consola.dispositivo(v),
     alAccion:id=>{const z=zonaActual();if(z==='juego')juego[id]?.();else if(z!=='bloqueado' && !accionMenu(z,id))navegarMando(raizMenu(z),id)}
   })
   function actualizarPreferencias(){prefs=preferencias();consola?.sonido(prefs.sonido);sincronizar()}
+  ventana.addEventListener('apex:micro-comprobado',()=>micro.reintentar(),opts)
   ventana.addEventListener('apex:preferencias',actualizarPreferencias,opts)
   ventana.addEventListener('keydown',e=>{
     if(!e.repeat)consola.dispositivo(false)

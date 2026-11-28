@@ -330,6 +330,22 @@ test('alVozHablada avisa al empezar y al terminar la voz', t => {
   assert.deepEqual(e.voz, [true, false, true, false])
 })
 
+test('Nostromo habla grave y pausado con una voz del idioma elegido si está disponible', t => {
+  const e = montar(t)
+  guardarPreferencias({ vozHablada: true, idiomaVoz: 'es-PE' })
+  const alonso = { name: 'Microsoft Alonso', lang: 'es-PE' }
+  const voces = [{ name: 'Alex', lang: 'en-US' }]
+  e.ventana.speechSynthesis.getVoices = () => voces
+  e.consola.responder({ texto: 'Te escucho.' })
+  assert.equal(e.hablados[0].lang, 'es-PE')
+  assert.equal(e.hablados[0].voice, undefined)
+  voces.push({ name: 'Pablo', lang: 'es-ES' }, { name: 'Voz local', lang: 'es-PE' }, alonso)
+  e.consola.responder({ texto: 'Todo en orden.' })
+  const respuesta = e.hablados[1]
+  assert.equal(respuesta.voice, alonso)
+  assert.ok(respuesta.rate < 1 && respuesta.pitch < 1)
+})
+
 test('dispositivo enciende los glifos del juego y retira las teclas de los botones', t => {
   const e = montar(t)
   e.consola.dispositivo(true)

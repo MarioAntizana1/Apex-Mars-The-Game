@@ -2,9 +2,9 @@
 
 ## Primer contacto
 
-En **Opciones → Voz del OBC**, elige *Siempre escuchando* para usar el nombre de activación, o *Pulsar para hablar* si prefieres abrir el micrófono solo con **F** o **LB**. La voz está apagada de fábrica. Al entrar en la exploración, autoriza el micrófono en el navegador. Di **«Nostromo»** o **«Nostrosmo»**: el barrido de luces inferior y una señal corta indican que la nave espera tu orden. Di **«Dame diagnóstico de nave»** en los siguientes siete segundos. También puedes decir el nombre y la orden seguidos. Con F/LB no hace falta decir el nombre.
+En **Opciones → Voz del OBC**, elige *Siempre escuchando* para usar el nombre de activación, o *Pulsar para hablar* si prefieres abrir el micrófono solo con **F** o **LB**. La voz está apagada de fábrica. Al activar uno de los modos, permite el acceso al micrófono si el navegador lo solicita. Si ya lo permitiste, puede que no aparezca ningún aviso; si antes lo bloqueaste, cambia el permiso de micrófono en los ajustes del sitio. Entra en la exploración para dar órdenes. Di **«Nostromo»** o **«Nostrosmo»**: el barrido de luces inferior y una señal corta indican que la nave espera tu orden. Di **«Dame diagnóstico de nave»** en los siguientes siete segundos. También puedes decir el nombre y la orden seguidos. Con F/LB no hace falta decir el nombre.
 
-Sin micrófono, usa **OBC · Escribir**. Puedes completar la partida sin activar la voz. La barra da la respuesta por escrito aunque el juego esté silenciado; la lectura con voz del sistema es opcional. Con movimiento reducido las luces no hacen el barrido animado.
+Sin micrófono, usa **OBC · Escribir**. Puedes completar la partida sin activar la voz. La barra da la respuesta por escrito aunque el juego esté silenciado; activa **Voz hablada del OBC** y el sonido del juego para oír a Nostromo. Habla en un tono grave y pausado, inspirado en HAL; el timbre depende de las voces en español instaladas en tu dispositivo. Con movimiento reducido las luces no hacen el barrido animado.
 
 ## Órdenes de exploración
 
@@ -26,7 +26,7 @@ Sin micrófono, usa **OBC · Escribir**. Puedes completar la partida sin activar
 
 ## Micrófono y privacidad
 
-Usa HTTPS o el servidor local en `http://127.0.0.1:8123/`. La disponibilidad depende del navegador, del idioma y de los permisos del sitio. Si el navegador permite comprobar que el paquete de idioma ya está instalado, se prefiere ese procesamiento local. En caso contrario el **servicio de voz del navegador puede recibir el audio**, incluso mientras espera la palabra de activación. El juego no archiva grabaciones ni transcripciones; aplica la lista de órdenes al resultado del navegador. Para dejar de capturar, selecciona *Apagada*. Una denegación de permiso no impide escribir órdenes.
+Usa HTTPS o el servidor local en `http://127.0.0.1:8123/`. Al cambiar de *Apagada* a un modo de voz en Opciones o en Pausa se solicita acceso al dispositivo y se cierran las pistas de prueba. **Probar permiso de micrófono** permite repetir la comprobación sin cambiar el modo elegido. Si denegaste el permiso, cámbialo en el navegador, vuelve a probar y reanuda la exploración. La prueba confirma la entrada de audio, no la disponibilidad del servicio ni del idioma. Si el navegador permite comprobar que el paquete de idioma ya está instalado, se prefiere ese procesamiento local. En caso contrario el **servicio de voz del navegador puede recibir el audio**, incluso mientras espera la palabra de activación. El juego no archiva grabaciones ni transcripciones; aplica la lista de órdenes al resultado del navegador. Para dejar de capturar, selecciona *Apagada*. Una denegación de permiso no impide escribir órdenes.
 
 ## Dos mandos, un astronauta
 
