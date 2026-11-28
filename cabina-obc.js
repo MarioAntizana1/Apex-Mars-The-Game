@@ -79,14 +79,24 @@ export function conectarOBC({sim, zona, raizMenu, accionMenu, pausar, guia, cerr
     }
     if(prefs.mando!==modoPad){modoPad=prefs.mando; mando?.reset(); if(!modoPad)consola.dispositivo(false)}
   }
-  // Un aviso único por sesión de escucha: distinguir «no llega audio» de «no lo
-  // entiende» es la mitad del diagnóstico cuando la orden no responde.
-  function vigilarSilencio(lectura) {
-    if(!escuchaActiva || !lectura.activo)return
-    if(lectura.nivel > .04) { silencio=0; avisoSilencio=false; return }
-    if(++silencio < 90 || avisoSilencio)return
-    avisoSilencio=true
-    consola?.estado({escuchando:true,mensaje:'No llega audio del micrófono. Revisa la entrada y prueba de nuevo.'})
+  // El silencio es normal mientras se espera el nombre de activación. Sólo tiene
+  // sentido avisar al que ya mantiene pulsado F/LB para hablar: si en ese gesto
+  // no llega nada, la entrada está muda. Al volver la señal el aviso se retira,
+  // porque una pausa entre palabras no es un micrófono desconectado.
+  let enSilencioAvisado=0
+  function vigilarSilencio(lectura, dt) {
+    if(!escuchaActiva || !lectura.activo) { silencio=0; return }
+  const hablandoAhora=fuentes.size>0
+    if(lectura.nivel > .04) {
+      silencio=0
+      if(avisoSilencio) { avisoSilencio=false; enSilencioAvisado=0; consola?.estado({escuchando:true}) }
+      return
+    }
+    if(!hablandoAhora) { silencio=0; return }
+    silencio+=Math.max(0,Math.min(.25,Number(dt)||0))
+    if(silencio < 2 || avisoSilencio)return
+    avisoSilencio=true; enSilencioAvisado=silencio
+    consola?.estado({escuchando:true,mensaje:'Silencio en el micrófono: sigue pulsado F y habla cerca del equipo.'})
   }
   function hablar(origen,pulsado) {
     sincronizar(); const z=zonaActual()
@@ -140,7 +150,7 @@ export function conectarOBC({sim, zona, raizMenu, accionMenu, pausar, guia, cerr
       if(nivel && escuchaActiva) {
         const lectura=nivel.leer()
         consola?.nivel?.(lectura.nivel, lectura.pico)
-        vigilarSilencio(lectura)
+        vigilarSilencio(lectura, dt)
       }
       if(prefs.mando && zonaActual()!=='bloqueado')mando.actualizar(dt)
     },

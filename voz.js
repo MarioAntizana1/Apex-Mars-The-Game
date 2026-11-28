@@ -40,6 +40,15 @@ function parecido(a, b) {
 // El nombre es corto y suena a muchas frases: sólo una errata de una letra.
 const esNombre = token => NOMBRES.some(nombre => distancia(token, nombre) <= 1)
 
+// El reconocedor parte a veces el nombre en dos palabras («nos tomo», «nostro
+// mo»). Se acepta entonces el par contiguo, nunca detrás de una negación.
+function esNombreCompuesto(a, b) {
+  if (!a || !b || NEGACION.has(a)) return false
+  const junto = a + b
+  if (junto.length < 7) return false
+  return NOMBRES.some(nombre => distancia(junto, nombre) <= 1)
+}
+
 // Todas las palabras de la frase deben aparecer, en orden, en el enunciado.
 // Devuelve cuántas palabras sobran (0 es la coincidencia exacta) o -1.
 function sobrantes(frase, enunciado) {
@@ -55,12 +64,18 @@ function sobrantes(frase, enunciado) {
 
 export function separarLlamada(frase) {
   const tokens = normalizar(frase).split(' ')
-  const indice = tokens.findIndex(esNombre)
+  let indice = tokens.findIndex(esNombre)
+  let largo = 1
+  if (indice < 0) {
+    for (let i = 0; i < tokens.length - 1; i++) {
+      if (esNombreCompuesto(tokens[i], tokens[i + 1])) { indice = i; largo = 2; break }
+    }
+  }
   if (indice < 0) return null
   return {
-    llamada: tokens[indice],
+    llamada: tokens.slice(indice, indice + largo).join(' '),
     antes: tokens.slice(0, indice).join(' '),
-    resto: tokens.slice(indice + 1).join(' '),
+    resto: tokens.slice(indice + largo).join(' '),
   }
 }
 

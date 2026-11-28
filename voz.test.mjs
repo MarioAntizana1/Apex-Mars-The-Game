@@ -23,6 +23,14 @@ test('la llamada funciona en cualquier posición y con las dos grafías', () => 
   assert.equal(separarLlamada('no estromo nada'), null)
 })
 
+test('acepta el nombre partido en dos palabras por el reconocedor', () => {
+  assert.deepEqual(separarLlamada('nos tomo abre el mapa'), { llamada: 'nos tomo', antes: '', resto: 'abre el mapa' })
+  assert.equal(separarLlamada('nostro mo dame diagnóstico').resto, 'dame diagnostico')
+  assert.equal(separarLlamada('oye nos tomo estado del traje').antes, 'oye')
+  // Una negación no es una llamada, aunque suene parecido.
+  assert.equal(separarLlamada('no stomo abre el mapa'), null)
+})
+
 test('despierta con «Nostromo», ignora el ruido y cierra la ventana a los siete segundos', () => {
   const r = banco()
   r.texto('Nostromología'); r.texto('abrir mapa'); r.texto('hola qué tal')

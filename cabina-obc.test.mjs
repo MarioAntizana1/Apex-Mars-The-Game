@@ -13,8 +13,7 @@ function cabina(t, prefs = {voz:'siempre',idiomaVoz:'es-PE',mando:true,sonido:tr
     consolaHUD:cb=>{m.hud=cb;return {despertar:()=>m.despierto=true,responder:r=>m.respuestas.push(r),dispositivo(){},estado:e=>m.estados.push(e),silenciar:v=>m.voces.push(v),sonido(){},dispose(){m.dispone.consola++},
       nivel:(n,p)=>m.niveles.push([n,p]),escucha:v=>m.escuchas.push(v),parcial:t=>m.parciales.push(t)}},
     reconocimiento:cb=>{m.micro=cb;return {configurar:o=>m.ajustes.push(o),pulsar:v=>m.pulsos.push(v),dispose(){m.dispone.micro++}}},
-    medidor:()=>({abrir:async()=>{m.medidorAbierto++;return 'activo'},cerrar:()=>{m.medidorCerrado++},leer:()=>({nivel:opciones.nivel ?? .6,pico:opciones.pico ?? .7,activo:opciones.activo ?? true}),motivo:()=>'',disponible:()=>true}),
-    controlador:cb=>{m.pad=cb;return {actualizar(){},reset(){},dispose(){m.dispone.mando++}}}
+    medidor:()=>({abrir:async()=>{m.medidorAbierto++;return 'activo'},cerrar:()=>{m.medidorCerrado++},leer:()=>({nivel:opciones.nivel ?? .6,pico:opciones.pico ?? .7,activo:opciones.activo ?? true}),motivo:()=>'',disponible:()=>true}),    controlador:cb=>{m.pad=cb;return {actualizar(){},reset(){},dispose(){m.dispone.mando++}}}
   }); t.after(()=>obc.dispose()); return {...m,m,obc,doc,ventana}
 }
 
@@ -34,15 +33,34 @@ test('con la voz apagada no se abre el micrófono para medir', async t=>{
   assert.equal(m.medidorAbierto,0);assert.deepEqual(m.escuchas.at(-1),false)
 })
 
-test('un aviso único cuando no llega audio, y ninguno si se habla', async t=>{
-  const mudo=cabina(t,undefined,{nivel:0})
+test('el aviso de silencio sólo aparece al hablar sin señal y no se queda pegado', async t=>{
+  const {m,obc,ventana}=cabina(t,undefined,{nivel:0})
   await new Promise(r=>setImmediate(r))
-  for(let i=0;i<200;i++)mudo.obc.actualizar(.016)
-  assert.equal(mudo.estados.filter(e=>/No llega audio/.test(e.mensaje)).length,1)
-  const hablado=cabina(t,undefined,{nivel:.5})
+  // En «Siempre escuchando» el silencio es lo normal: no hay aviso.
+  for(let i=0;i<300;i++)obc.actualizar(.016)
+  assert.equal(m.estados.filter(e=>/Silencio en el micrófono/.test(e.mensaje)).length,0)
+  // Con F pulsado y sin señal avisa una sola vez, por mucho que se mantenga.
+  ventana.dispatchEvent(Object.assign(new Event('keydown'),{code:'KeyF'}))
+  for(let i=0;i<400;i++)obc.actualizar(.016)
+  assert.equal(m.estados.filter(e=>/Silencio en el micrófono/.test(e.mensaje)).length,1)
+})
+
+test('cuando vuelve la señal el aviso desaparece del estado', async t=>{
+  let nivel=.0
+  const {m,obc,ventana}=cabina(t,undefined,{get nivel(){return nivel}})
   await new Promise(r=>setImmediate(r))
-  for(let i=0;i<200;i++)hablado.obc.actualizar(.016)
-  assert.equal(hablado.estados.filter(e=>/No llega audio/.test(e.mensaje)).length,0)
+  ventana.dispatchEvent(Object.assign(new Event('keydown'),{code:'KeyF'}))
+  for(let i=0;i<300;i++)obc.actualizar(.016)
+  const aviso=m.estados.findLast(e=>/Silencio en el micrófono/.test(e.mensaje))
+  assert.ok(aviso)
+  nivel=.5
+  obc.actualizar(.016)
+  const ultimo=m.estados.at(-1)
+  assert.equal(ultimo.mensaje,undefined); assert.equal(ultimo.escuchando,true)
+  nivel=0
+  for(let i=0;i<300;i++)obc.actualizar(.016)
+  // Un nuevo silencio tras hablar vuelve a avisar: es otro episodio.
+  assert.equal(m.estados.filter(e=>/Silencio en el micrófono/.test(e.mensaje)).length,2)
 })
 
 test('si el navegador no comparte el micrófono se retira la tira y la voz sigue', async t=>{
